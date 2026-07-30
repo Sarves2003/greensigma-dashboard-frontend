@@ -1,0 +1,56 @@
+﻿<div class="filter-bar">
+  <!-- Period Selector -->
+  <div class="filter-group">
+    <label>Period:</label>
+    <select [(ngModel)]="period" (change)="onPeriodChange()">
+      <option value="today">Today</option>
+      <option value="yesterday">Yesterday</option>
+      <option value="last7days">Last 7 Days</option>
+      <option value="last30days">Last 30 Days</option>
+      <option value="thisMonth">This Month</option>
+      <option value="lastMonth">Last Month</option>
+      <option value="custom">Custom</option>
+    </select>
+  </div>
+
+  <!-- Custom Date Range -->
+  <div class="filter-group" *ngIf="period === 'custom'">
+    <label>From:</label>
+    <input type="date" [(ngModel)]="startDate" (change)="emitFilters()" />
+  </div>
+
+  <div class="filter-group" *ngIf="period === 'custom'">
+    <label>To:</label>
+    <input type="date" [(ngModel)]="endDate" (change)="emitFilters()" />
+  </div>
+
+  <!-- User Type Filter -->
+  <div class="filter-group">
+    <label>User Type:</label>
+    <select [(ngModel)]="userType" (change)="emitFilters()">
+      <option value="">All Types</option>
+      <option *ngFor="let type of userTypes" [value]="type">{{ type }}</option>
+    </select>
+  </div>
+
+  <!-- Referral Code Filter -->
+  <div class="filter-group">
+    <label>Referral Code:</label>
+    <input type="text" [(ngModel)]="referralCode" (change)="emitFilters()" placeholder="Enter code..." />
+  </div>
+
+  <!-- State Filter -->
+  <div class="filter-group">
+    <label>State:</label>
+    <select [(ngModel)]="state" (change)="emitFilters()">
+      <option value="">All States</option>
+      <option *ngFor="let s of states" [value]="s">{{ s }}</option>
+    </select>
+  </div>
+
+  <!-- District Filter -->
+  <div class="filter-group">
+    <label>District:</label>
+    <input type="text" [(ngModel)]="district" (change)="emitFilters()" placeholder="Enter district..." />
+  </div>
+</div>

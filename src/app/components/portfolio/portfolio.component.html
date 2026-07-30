@@ -1,0 +1,188 @@
+﻿<div class="dashboard-container">
+  <div class="header">
+    <h1>Portfolio Analytics</h1>
+  </div>
+
+  <app-filter-bar (filterChange)="onFilterChange($event)"></app-filter-bar>
+
+  <!-- Broker Type Filter -->
+  <div class="broker-filter-section">
+    <label class="filter-label">Broker Type:</label>
+    <div class="checkbox-group">
+      <label *ngFor="let bt of brokerTypes" class="checkbox-label">
+        <input
+          type="checkbox"
+          [checked]="selectedBrokerTypes.includes(bt.value)"
+          (change)="onBrokerTypeChange(bt.value)">
+        {{ bt.label }}
+      </label>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading portfolio data...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading">
+    <!-- Key Metrics -->
+    <div class="metrics-section">
+      <h2>Key Metrics</h2>
+      <div class="metrics-grid">
+        <app-kpi-card [label]="'Portfolio Created'" [value]="portfolioMetrics.totalCreated"></app-kpi-card>
+        <app-kpi-card [label]="'Draft'" [value]="portfolioMetrics.draft"></app-kpi-card>
+        <app-kpi-card [label]="'Live'" [value]="portfolioMetrics.live"></app-kpi-card>
+        <app-kpi-card [label]="'Real Portfolio'" [value]="portfolioMetrics.realPortfolio"></app-kpi-card>
+        <app-kpi-card [label]="'Real Money Capital'" [value]="'₹' + portfolioMetrics.realCapital.toLocaleString()"></app-kpi-card>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-section">
+      <!-- AUM Growth Chart -->
+      <div class="chart-container">
+        <h3>Portfolio AUM Growth</h3>
+        <app-chart [data]="getFilteredTrendData()" [type]="'line'" [title]="'Cumulative AUM Over Time'"></app-chart>
+      </div>
+
+      <!-- Capital Distribution Chart -->
+      <div class="chart-container">
+        <h3>Capital Distribution</h3>
+        <app-chart [data]="portfolioBreakdown" [type]="'bar'" [title]="'Portfolio Count by Capital Range'"></app-chart>
+      </div>
+    </div>
+
+    <!-- Top Investors Table with Pagination -->
+    <div class="table-section">
+      <div class="table-header">
+        <h2>Top Investors</h2>
+        <input
+          #searchInput
+          type="text"
+          class="search-box"
+          placeholder="Search by name or ID..."
+          (input)="onSearch(searchInput.value)">
+      </div>
+      <table class="data-table sortable">
+        <thead>
+          <tr>
+            <th (click)="onSort('username')" [class.active]="sortBy === 'username'">
+              Username
+              <span *ngIf="sortBy === 'username'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('createdOn')" [class.active]="sortBy === 'createdOn'">
+              Joined Date
+              <span *ngIf="sortBy === 'createdOn'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('firstPortfolioDate')" [class.active]="sortBy === 'firstPortfolioDate'">
+              First Portfolio Date
+              <span *ngIf="sortBy === 'firstPortfolioDate'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('daysToFirstDeploy')" [class.active]="sortBy === 'daysToFirstDeploy'">
+              Days to Deploy
+              <span *ngIf="sortBy === 'daysToFirstDeploy'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('livePortfolioCount')" [class.active]="sortBy === 'livePortfolioCount'">
+              Live Count
+              <span *ngIf="sortBy === 'livePortfolioCount'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('paperPortfolioCount')" [class.active]="sortBy === 'paperPortfolioCount'">
+              Paper Count
+              <span *ngIf="sortBy === 'paperPortfolioCount'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('liveAUM')" [class.active]="sortBy === 'liveAUM'">
+              Live AUM (₹)
+              <span *ngIf="sortBy === 'liveAUM'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('paperAUM')" [class.active]="sortBy === 'paperAUM'">
+              Paper AUM (₹)
+              <span *ngIf="sortBy === 'paperAUM'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th (click)="onSort('avgInvestedPerPortfolio')" [class.active]="sortBy === 'avgInvestedPerPortfolio'">
+              Avg Invested (₹)
+              <span *ngIf="sortBy === 'avgInvestedPerPortfolio'" class="sort-icon">
+                {{ sortOrder === 'asc' ? '▲' : '▼' }}
+              </span>
+            </th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let investor of filteredInvestors">
+            <td>{{ investor.username }}</td>
+            <td>{{ formatMonthYear(investor.createdOn) }}</td>
+            <td>{{ formatDate(investor.firstPortfolioDate) }}</td>
+            <td>{{ investor.daysToFirstDeploy !== null ? investor.daysToFirstDeploy + ' days' : '-' }}</td>
+            <td>{{ investor.livePortfolioCount }}</td>
+            <td>{{ investor.paperPortfolioCount }}</td>
+            <td>{{ investor.liveAUM.toLocaleString() }}</td>
+            <td>{{ investor.paperAUM.toLocaleString() }}</td>
+            <td>{{ investor.avgInvestedPerPortfolio.toLocaleString() }}</td>
+            <td>
+              <button class="btn-detail" (click)="openDetailView(investor)">View Details</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <button [disabled]="currentPage === 1" (click)="prevPage()">← Previous</button>
+        <span class="page-info">Page {{ currentPage }} of {{ totalPages }} (Total: {{ totalInvestors }})</span>
+        <button [disabled]="currentPage === totalPages" (click)="nextPage()">Next →</button>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" *ngIf="showDetailModal" (click)="closeDetailView()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Portfolios for {{ selectedInvestor?.username }}</h2>
+        <button class="btn-close" (click)="closeDetailView()">✕</button>
+      </div>
+
+      <div *ngIf="detailLoading" class="loading">Loading portfolios...</div>
+
+      <div *ngIf="!detailLoading" class="modal-body">
+        <table class="detail-table" *ngIf="investorPortfolios.length > 0">
+          <thead>
+            <tr>
+              <th>Portfolio Name</th>
+              <th>Type (Real/Paper)</th>
+              <th>Status</th>
+              <th>Capital (₹)</th>
+              <th>Created Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let portfolio of investorPortfolios">
+              <td>{{ portfolio.portfolioName || 'Unnamed' }}</td>
+              <td>{{ portfolio.borkrageType === 'paper_trade' ? 'Paper' : 'Real' }}</td>
+              <td>{{ portfolio.isInvested ? 'Live' : 'Draft' }}</td>
+              <td>{{ (portfolio.investmentCapital || 0).toLocaleString() }}</td>
+              <td>{{ portfolio.createdAt | date: 'short' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div *ngIf="investorPortfolios.length === 0" class="no-data">
+          No portfolios found for this period.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

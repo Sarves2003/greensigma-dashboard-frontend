@@ -1,0 +1,128 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Cohort Retention Analytics</h1>
+  </div>
+
+  <app-filter-bar (filterChange)="onFilterChange($event)"></app-filter-bar>
+
+  <!-- Granularity Selector -->
+  <div class="controls">
+    <label>Retention Period:</label>
+    <div class="button-group">
+      <button
+        [class.active]="granularity === 'monthly'"
+        (click)="granularity = 'monthly'; onGranularityChange()"
+      >
+        Monthly
+      </button>
+      <button
+        [class.active]="granularity === 'quarterly'"
+        (click)="granularity = 'quarterly'; onGranularityChange()"
+      >
+        Quarterly
+      </button>
+      <button
+        [class.active]="granularity === 'yearly'"
+        (click)="granularity = 'yearly'; onGranularityChange()"
+      >
+        Yearly
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading retention data...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading">
+    <!-- Cohort Heatmap -->
+    <div class="heatmap-section">
+      <h2>Cohort Retention Heatmap</h2>
+      <div class="heatmap-container">
+        <table class="cohort-table">
+          <thead>
+            <tr>
+              <th class="cohort-label">Cohort</th>
+              <th class="total-users">Users</th>
+              <ng-container *ngFor="let col of cohortColumns">
+                <th class="retention-column">{{ col }}</th>
+              </ng-container>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of cohortRows">
+              <td class="cohort-label">{{ row.cohort }}</td>
+              <td class="total-users">{{ row.totalUsers }}</td>
+              <ng-container *ngFor="let col of cohortColumns">
+                <td
+                  class="retention-cell"
+                  [style.backgroundColor]="getRetentionColor(getCellValue(row, col))"
+                  [title]="getCellDisplay(row, col)"
+                >
+                  {{ getCellDisplay(row, col) }}
+                </td>
+              </ng-container>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- KPI Comparison (temporarily disabled, revisit later)
+    <div class="kpi-section">
+      <h2>KPI vs Industry Standards</h2>
+      <table class="kpi-table">
+        <thead>
+          <tr>
+            <th>KPI</th>
+            <th>Our Value</th>
+            <th>Industry Standard</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Show-Up Rate</td>
+            <td>{{ kpiComparison.showUpRate }}%</td>
+            <td>40-60%</td>
+            <td [class]="'status ' + (kpiComparison.showUpRate >= 40 && kpiComparison.showUpRate <= 60 ? 'good' : 'warning')">
+              {{ kpiComparison.showUpRate >= 40 && kpiComparison.showUpRate <= 60 ? '✓ Good' : '⚠ Check' }}
+            </td>
+          </tr>
+          <tr>
+            <td>Activation Rate</td>
+            <td>{{ kpiComparison.activationRate }}%</td>
+            <td>40-60% (EdTech)</td>
+            <td [class]="'status ' + (kpiComparison.activationRate >= 40 && kpiComparison.activationRate <= 60 ? 'good' : 'warning')">
+              {{ kpiComparison.activationRate >= 40 && kpiComparison.activationRate <= 60 ? '✓ Good' : '⚠ Check' }}
+            </td>
+          </tr>
+          <tr>
+            <td>Total Users</td>
+            <td>{{ kpiComparison.totalUsers }}</td>
+            <td>Tracking</td>
+            <td class="status good">📊 Tracked</td>
+          </tr>
+          <tr>
+            <td>Active Users</td>
+            <td>{{ kpiComparison.activeUsers }}</td>
+            <td>Track trend</td>
+            <td class="status good">📊 Tracked</td>
+          </tr>
+          <tr>
+            <td>DAU</td>
+            <td>{{ kpiComparison.dau }}</td>
+            <td>Daily Active</td>
+            <td class="status good">📊 Tracked</td>
+          </tr>
+          <tr>
+            <td>MAU</td>
+            <td>{{ kpiComparison.mau }}</td>
+            <td>Monthly Active</td>
+            <td class="status good">📊 Tracked</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    -->
+  </ng-container>
+</div>

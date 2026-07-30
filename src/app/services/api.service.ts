@@ -1,0 +1,291 @@
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { APIResponse, KPIResponse, ChartDataPoint, User, PaginatedResponse } from '@models/index';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class ApiService {
+  private baseUrl = 'http://localhost:5000/api';
+
+  constructor(private http: HttpClient) {}
+
+  // Overview V2
+  private buildParams(params: any): HttpParams {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return httpParams;
+  }
+
+  getKeyMetricsV2(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/key-metrics`, { params: this.buildParams(params) });
+  }
+
+  getFeatureUsageV2(params: any): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/overview-v2/feature-usage`, { params: this.buildParams(params) });
+  }
+
+  getSignupsMonthlyPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/signups-monthly`, { params: this.buildParams(params) });
+  }
+
+  getLedgerCohortPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/ledger-cohort`, { params: this.buildParams(params) });
+  }
+
+  getActivationRatePlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/activation-rate`, { params: this.buildParams(params) });
+  }
+
+  getLiveCapitalRatePlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/live-capital-rate`, { params: this.buildParams(params) });
+  }
+
+  getMonthlyActivePaidPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/monthly-active-paid`, { params: this.buildParams(params) });
+  }
+
+  // Overview (legacy)
+  getKPIs(params: any): Observable<APIResponse<KPIResponse[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+
+    return this.http.get<APIResponse<KPIResponse[]>>(`${this.baseUrl}/overview/kpis`, {
+      params: httpParams,
+    });
+  }
+
+  getDailyTrend(params: any): Observable<APIResponse<ChartDataPoint[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+
+    return this.http.get<APIResponse<ChartDataPoint[]>>(`${this.baseUrl}/overview/daily-trend`, {
+      params: httpParams,
+    });
+  }
+
+  getUserTypeDistribution(params: any): Observable<APIResponse<ChartDataPoint[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<ChartDataPoint[]>>(
+      `${this.baseUrl}/overview/user-type-distribution`,
+      { params: httpParams }
+    );
+  }
+
+  getStateDistribution(params: any): Observable<APIResponse<ChartDataPoint[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<ChartDataPoint[]>>(
+      `${this.baseUrl}/overview/state-distribution`,
+      { params: httpParams }
+    );
+  }
+
+  getReferralDistribution(params: any): Observable<APIResponse<ChartDataPoint[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<ChartDataPoint[]>>(
+      `${this.baseUrl}/overview/referral-distribution`,
+      { params: httpParams }
+    );
+  }
+
+  // Users
+  searchUsers(query: string): Observable<APIResponse<User[]>> {
+    const params = new HttpParams().set('q', query);
+    return this.http.get<APIResponse<User[]>>(`${this.baseUrl}/users/search`, { params });
+  }
+
+  getUserById(userId: string): Observable<APIResponse<User>> {
+    return this.http.get<APIResponse<User>>(`${this.baseUrl}/users/${userId}`);
+  }
+
+  getUsers(page: number = 1, pageSize: number = 50, filters?: any): Observable<APIResponse<PaginatedResponse<User>>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+
+    if (filters) {
+      Object.keys(filters).forEach((key) => {
+        if (filters[key]) {
+          params = params.set(key, filters[key]);
+        }
+      });
+    }
+
+    return this.http.get<APIResponse<PaginatedResponse<User>>>(`${this.baseUrl}/users`, { params });
+  }
+
+  // Drill-down endpoints
+  getLivePortfolioUsers(params: any): Observable<APIResponse<User[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+
+    return this.http.get<APIResponse<User[]>>(`${this.baseUrl}/overview/live-portfolio-users`, {
+      params: httpParams,
+    });
+  }
+
+  getPaperPortfolioUsers(params: any): Observable<APIResponse<User[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+
+    return this.http.get<APIResponse<User[]>>(`${this.baseUrl}/overview/paper-portfolio-users`, {
+      params: httpParams,
+    });
+  }
+
+  getStockScoreUsers(params: any): Observable<APIResponse<User[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+
+    return this.http.get<APIResponse<User[]>>(`${this.baseUrl}/overview/stock-score-users`, {
+      params: httpParams,
+    });
+  }
+
+  // Portfolio
+  getPortfolioMetrics(params: any): Observable<APIResponse<any>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/portfolio/metrics`, {
+      params: httpParams,
+    });
+  }
+
+  getPortfolioTrend(params: any): Observable<APIResponse<any[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/portfolio/trend`, {
+      params: httpParams,
+    });
+  }
+
+  getPortfolioBreakdown(params: any): Observable<APIResponse<any[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/portfolio/breakdown`, {
+      params: httpParams,
+    });
+  }
+
+  getTopInvestors(params: any, limit: number = 10, offset: number = 0): Observable<APIResponse<any>> {
+    let httpParams = new HttpParams()
+      .set('limit', limit.toString())
+      .set('offset', offset.toString());
+
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/portfolio/top-investors`, {
+      params: httpParams,
+    });
+  }
+
+  // GS Health
+  getGsHealthSummary(params: any): Observable<APIResponse<any>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/summary`, {
+      params: httpParams,
+    });
+  }
+
+  // Retention
+  getCohortRetention(params: any): Observable<APIResponse<any>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/retention/cohort`, {
+      params: httpParams,
+    });
+  }
+
+  getKPIComparison(params: any): Observable<APIResponse<any>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/retention/kpi-comparison`, {
+      params: httpParams,
+    });
+  }
+
+  getUserPortfolios(userId: string, params: any): Observable<APIResponse<any[]>> {
+    let httpParams = new HttpParams();
+    Object.keys(params).forEach((key) => {
+      if (params[key]) {
+        httpParams = httpParams.set(key, params[key]);
+      }
+    });
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/portfolio/user/${userId}`, {
+      params: httpParams,
+    });
+  }
+
+  // Health check
+  getHealth(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/health`);
+  }
+}

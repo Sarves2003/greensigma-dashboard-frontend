@@ -1,0 +1,204 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Revenue Metrics</h1>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Period:</label>
+      <div class="button-group">
+        <button [class.active]="periodMode === 'months' && months === 2" (click)="onMonthsChange(2)">
+          Last 2 Months
+        </button>
+        <button [class.active]="periodMode === 'months' && months === 3" (click)="onMonthsChange(3)">
+          Last 3 Months
+        </button>
+        <button [class.active]="periodMode === 'custom'" (click)="periodMode = 'custom'">
+          Custom
+        </button>
+      </div>
+    </div>
+
+    <ng-container *ngIf="periodMode === 'custom'">
+      <div class="filter-group">
+        <label>From:</label>
+        <input type="month" [(ngModel)]="startMonth" (change)="onCustomRangeChange()" />
+      </div>
+      <div class="filter-group">
+        <label>To:</label>
+        <input type="month" [(ngModel)]="endMonth" (change)="onCustomRangeChange()" />
+      </div>
+    </ng-container>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading Revenue Metrics data...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error">
+    <!-- Totals -->
+    <div class="kpi-grid">
+      <app-kpi-card
+        icon="💵"
+        label="Total Gross Revenue"
+        [value]="'₹' + (cards.totalGrossRevenue | number: '1.0-0')"
+        tooltip="Sum of Total Revenue across selected months"
+      ></app-kpi-card>
+      <app-kpi-card
+        icon="💰"
+        label="Total Net Revenue"
+        [value]="'₹' + (cards.totalNetRevenue | number: '1.0-0')"
+        tooltip="Sum of Net Revenue across selected months"
+      ></app-kpi-card>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <app-kpi-card
+        icon="📐"
+        label="Avg CAC Ratio"
+        [value]="cards.avgCacRatio + 'x'"
+        tooltip="Average Product Cost / CAC across selected months"
+      ></app-kpi-card>
+      <app-kpi-card
+        icon="💰"
+        label="Avg Net Revenue / Month"
+        [value]="'₹' + (cards.avgNetRevenue | number: '1.0-0')"
+        tooltip="Average Net Revenue across selected months"
+      ></app-kpi-card>
+      <app-kpi-card
+        icon="📣"
+        label="Avg CPP / Month"
+        [value]="'₹' + cards.avgCpp"
+        tooltip="Average Cost Per (Paid) Person across selected months"
+      ></app-kpi-card>
+      <app-kpi-card
+        icon="👤"
+        label="Avg Paid Users / Month"
+        [value]="cards.avgPaidUsers"
+        tooltip="Average Fully Converted User Count across selected months"
+      ></app-kpi-card>
+    </div>
+
+    <!-- CAC & CAC Ratio -->
+    <div class="chart-grid">
+      <div class="chart-section">
+        <h2>CAC Trend</h2>
+        <div class="chart-container">
+          <canvas
+            baseChart
+            *ngIf="cacConfig"
+            [data]="cacConfig.data"
+            [options]="cacConfig.options"
+            [type]="cacConfig.type"
+          ></canvas>
+        </div>
+      </div>
+
+      <div class="chart-section">
+        <h2>CAC Ratio Trend</h2>
+        <div class="chart-container">
+          <canvas
+            baseChart
+            *ngIf="cacRatioConfig"
+            [data]="cacRatioConfig.data"
+            [options]="cacRatioConfig.options"
+            [type]="cacRatioConfig.type"
+          ></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Net Revenue -->
+    <div class="chart-section">
+      <div class="chart-header">
+        <h2>Net Revenue</h2>
+        <div class="button-group">
+          <button [class.active]="revenueView === 'monthly'" (click)="toggleRevenueView('monthly')">
+            Monthly
+          </button>
+          <button [class.active]="revenueView === 'cumulative'" (click)="toggleRevenueView('cumulative')">
+            Cumulative
+          </button>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas
+          baseChart
+          *ngIf="netRevenueConfig"
+          [data]="netRevenueConfig.data"
+          [options]="netRevenueConfig.options"
+          [type]="netRevenueConfig.type"
+        ></canvas>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <!-- CPP -->
+      <div class="chart-section">
+        <h2>CPP (Cost Per Person)</h2>
+        <div class="chart-container">
+          <canvas
+            baseChart
+            *ngIf="cppConfig"
+            [data]="cppConfig.data"
+            [options]="cppConfig.options"
+            [type]="cppConfig.type"
+          ></canvas>
+        </div>
+      </div>
+
+      <!-- Net ROAS -->
+      <div class="chart-section">
+        <h2>Net ROAS</h2>
+        <div class="chart-container">
+          <canvas
+            baseChart
+            *ngIf="netRoasConfig"
+            [data]="netRoasConfig.data"
+            [options]="netRoasConfig.options"
+            [type]="netRoasConfig.type"
+          ></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-section">
+      <h2>Monthly Detail</h2>
+      <div class="table-container">
+        <table class="gs-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Registered</th>
+              <th>Net Revenue</th>
+              <th>Ads Spent</th>
+              <th>CPP</th>
+              <th>Net ROAS</th>
+              <th>CAC</th>
+              <th>CAC Ratio</th>
+              <th>Paid Users</th>
+              <th>Team</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of table">
+              <td class="month-label">{{ row.monthLabel }}</td>
+              <td>{{ row.registeredCount }}</td>
+              <td>₹{{ row.netRevenue | number: '1.0-0' }}</td>
+              <td>₹{{ row.adsSpentWithGST | number: '1.0-0' }}</td>
+              <td>₹{{ row.cpp }}</td>
+              <td>{{ row.netRoas }}x</td>
+              <td>₹{{ row.cac }}</td>
+              <td>{{ row.cacRatio }}x</td>
+              <td>{{ row.paidUsers }}</td>
+              <td>{{ row.team }}</td>
+              <td class="notes">{{ row.notes }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+</div>

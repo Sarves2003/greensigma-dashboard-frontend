@@ -1,0 +1,8 @@
+﻿<div class="kpi-card" [title]="tooltip">
+  <div class="kpi-icon" *ngIf="icon">{{ icon }}</div>
+  <div class="kpi-content">
+    <p class="kpi-label">{{ displayLabel }}</p>
+    <p class="kpi-value">{{ displayValue }}</p>
+    <p class="kpi-trend" *ngIf="displayTrend">{{ displayTrend }}</p>
+  </div>
+</div>

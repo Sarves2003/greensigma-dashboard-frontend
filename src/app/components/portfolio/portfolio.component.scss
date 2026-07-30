@@ -1,0 +1,385 @@
+﻿.dashboard-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+
+  h1 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+}
+
+.broker-filter-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 8px;
+
+  .filter-label {
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+  }
+
+  .checkbox-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: #4b5563;
+    font-weight: 500;
+
+    input[type="checkbox"] {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+    }
+
+    &:hover {
+      color: #1f2937;
+    }
+  }
+}
+
+.loading,
+.error {
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.loading {
+  background-color: #eff6ff;
+  color: #0369a1;
+}
+
+.error {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.metrics-section {
+  margin-bottom: 3rem;
+
+  h2 {
+    color: #1f2937;
+    margin-bottom: 1rem;
+  }
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.charts-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.chart-container {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  h3 {
+    color: #1f2937;
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+
+  h3 {
+    margin: 0;
+  }
+
+  .trend-toggle {
+    display: flex;
+    gap: 0.5rem;
+
+    button {
+      padding: 0.5rem 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background-color: white;
+      color: #4b5563;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+
+      &:hover {
+        background-color: #f3f4f6;
+      }
+
+      &.active {
+        background-color: #0369a1;
+        color: white;
+        border-color: #0369a1;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+.table-section {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  h2 {
+    color: #1f2937;
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+
+  h2 {
+    margin: 0;
+    flex: 1;
+  }
+
+  .search-box {
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    min-width: 300px;
+
+    &:focus {
+      outline: none;
+      border-color: #0369a1;
+      box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.1);
+    }
+
+    &::placeholder {
+      color: #9ca3af;
+    }
+  }
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow-x: auto;
+
+  thead tr {
+    background-color: #f3f4f6;
+    border-bottom: 1px solid #d1d5db;
+  }
+
+  th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    color: #4b5563;
+  }
+
+  tbody tr:hover {
+    background-color: #f9fafb;
+  }
+
+  &.sortable {
+    th {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+
+      &:hover {
+        background-color: #e5e7eb;
+      }
+
+      &.active {
+        background-color: #dbeafe;
+        color: #0369a1;
+        font-weight: 700;
+      }
+
+      .sort-icon {
+        margin-left: 0.5rem;
+        font-size: 0.75rem;
+      }
+    }
+  }
+}
+
+.btn-detail {
+  padding: 0.5rem 1rem;
+  background-color: #0369a1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #0284c7;
+  }
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+
+  button {
+    padding: 0.5rem 1rem;
+    background-color: #0369a1;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+
+    &:hover:not(:disabled) {
+      background-color: #0284c7;
+    }
+
+    &:disabled {
+      background-color: #d1d5db;
+      cursor: not-allowed;
+    }
+  }
+
+  .page-info {
+    color: #4b5563;
+    font-weight: 500;
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  max-width: 900px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+
+  h2 {
+    margin: 0;
+    color: #1f2937;
+  }
+
+  .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      color: #1f2937;
+    }
+  }
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead tr {
+    background-color: #f3f4f6;
+    border-bottom: 1px solid #d1d5db;
+  }
+
+  th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    color: #4b5563;
+  }
+
+  tbody tr:hover {
+    background-color: #f9fafb;
+  }
+}
+
+.no-data {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 1rem;
+}

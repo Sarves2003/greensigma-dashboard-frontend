@@ -1,0 +1,220 @@
+<div class="overview-container">
+  <div class="overview-header">
+    <h1>Dashboard Overview</h1>
+    <p class="subtitle">Real-time product analytics and insights</p>
+  </div>
+
+  <app-filter-bar (filterChange)="onFilterChange($event)"></app-filter-bar>
+
+  <div *ngIf="error" class="error-alert">
+    {{ error }}
+  </div>
+
+  <div *ngIf="loading" class="loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading dashboard...</p>
+  </div>
+
+  <div *ngIf="!loading" class="dashboard-grid">
+    <!-- Key Metrics -->
+    <div class="grid-section">
+      <h2 class="section-title">Key Metrics</h2>
+      <div class="kpi-grid">
+        <app-kpi-card
+          icon="🆕"
+          label="New Signups"
+          [value]="keyMetrics.newSignups"
+          tooltip="Users registered in the selected period">
+        </app-kpi-card>
+        <app-kpi-card
+          icon="💳"
+          label="New Paid Customers"
+          [value]="keyMetrics.newPaidCustomers"
+          tooltip="New signups in the selected period with type = Tribe">
+        </app-kpi-card>
+        <app-kpi-card
+          icon="🔑"
+          label="Avg Logins/Day"
+          [value]="keyMetrics.avgLoginsPerDay"
+          tooltip="Total successful logins in period / days in period">
+        </app-kpi-card>
+        <app-kpi-card
+          icon="⚡"
+          label="Active User Count"
+          [value]="keyMetrics.activeUserCount"
+          tooltip="Users with at least 1 action across Stock Score, Backtest, ETF Score, ETF Backtest, Intraday, Portfolio, or Broker Connect in the selected period. Login alone does not count.">
+        </app-kpi-card>
+        <app-kpi-card
+          icon="📦"
+          label="Avg Days to 1st Portfolio"
+          [value]="keyMetrics.avgDaysToFirstPortfolio !== null && keyMetrics.avgDaysToFirstPortfolio !== undefined ? keyMetrics.avgDaysToFirstPortfolio + ' days' : 'N/A'"
+          tooltip="ℹ️ Average days between signup and first REAL portfolio deployment (isInvested=true, broker=kite/zebu), for users who signed up in the selected period.">
+        </app-kpi-card>
+      </div>
+    </div>
+
+    <!-- Feature Usage -->
+    <div class="grid-section">
+      <h2 class="section-title">Feature Usage (All Users)</h2>
+      <div class="kpi-grid">
+        <app-kpi-card
+          *ngFor="let f of featureUsage"
+          [label]="f.label"
+          [value]="f.value"
+          [trend]="f.avgPerUser !== null ? 'Avg: ' + f.avgPerUser + '/user' : ''"
+          tooltip="Total in selected period. Avg = Total / Unique Users who used this feature.">
+        </app-kpi-card>
+      </div>
+    </div>
+
+    <!-- Plots respecting global filter -->
+    <div class="grid-section">
+      <h2 class="section-title">Growth & Engagement</h2>
+      <div class="plot-grid">
+        <div class="plot-card">
+          <h3>New Signups — Monthly Growth</h3>
+          <div class="plot-canvas">
+            <div *ngIf="loadingPlot1" class="plot-loading">Loading...</div>
+            <canvas
+              baseChart
+              *ngIf="!loadingPlot1 && signupsMonthlyConfig"
+              [data]="signupsMonthlyConfig.data"
+              [options]="signupsMonthlyConfig.options"
+              [type]="signupsMonthlyConfig.type">
+            </canvas>
+          </div>
+        </div>
+
+        <div class="plot-card">
+          <h3>Ledger Usage by Signup Cohort</h3>
+          <p class="plot-subtitle">Total event count from signup month through today, summed across selected ledger items</p>
+          <div class="ledger-select">
+            <label *ngFor="let opt of ledgerOptions" class="ledger-checkbox">
+              <input type="checkbox" [checked]="plot2Ledger.includes(opt.key)" (change)="onPlot2LedgerToggle(opt.key)" />
+              {{ opt.label }}
+            </label>
+          </div>
+          <div class="plot-canvas">
+            <div *ngIf="loadingPlot2" class="plot-loading">Loading...</div>
+            <canvas
+              baseChart
+              *ngIf="!loadingPlot2 && ledgerCohortConfig"
+              [data]="ledgerCohortConfig.data"
+              [options]="ledgerCohortConfig.options"
+              [type]="ledgerCohortConfig.type">
+            </canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plots ignoring global filter -->
+    <div class="grid-section">
+      <h2 class="section-title">
+        Activation & Conversion
+        <span class="section-note">ℹ️ These plots ignore the Period / User Type / State / District filters above — each has its own control below</span>
+      </h2>
+      <div class="plot-grid">
+        <div class="plot-card">
+          <div class="plot-header">
+            <h3>30-Day Activation Rate</h3>
+            <span class="info-icon" title="Tribe users only. Date filters above are NOT applied. Each user is judged against their own signup date + 30 days — recent months may still be partial and rise over time.">ℹ️</span>
+          </div>
+          <p class="plot-subtitle">Per signup month: % of Tribe users who created a portfolio within 30 days of their own signup date</p>
+          <div class="mini-controls">
+            <div class="button-group">
+              <button [class.active]="plot3Type === 'real'" (click)="onPlot3TypeChange('real')">Real</button>
+              <button [class.active]="plot3Type === 'paper'" (click)="onPlot3TypeChange('paper')">Paper</button>
+            </div>
+            <div class="button-group">
+              <button [class.active]="plot3Block === 'current'" (click)="onPlot3BlockChange('current')">Current 3 Months</button>
+              <button [class.active]="plot3Block === 'previous'" (click)="onPlot3BlockChange('previous')">Previous 3 Months</button>
+              <button [class.active]="plot3Block === 'custom'" (click)="plot3Block = 'custom'">Custom</button>
+            </div>
+            <ng-container *ngIf="plot3Block === 'custom'">
+              <input type="month" [(ngModel)]="plot3StartMonth" (change)="onPlot3CustomChange()" />
+              <span>to</span>
+              <input type="month" [(ngModel)]="plot3EndMonth" (change)="onPlot3CustomChange()" />
+            </ng-container>
+          </div>
+          <div class="plot-canvas">
+            <div *ngIf="loadingPlot3" class="plot-loading">Loading...</div>
+            <div *ngIf="!loadingPlot3 && activationRateRows.length === 0" class="plot-empty">
+              No Tribe signups in this range.
+            </div>
+            <table *ngIf="!loadingPlot3 && activationRateRows.length > 0" class="mini-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Activated / Signups</th>
+                  <th>Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of activationRateRows">
+                  <td>{{ row.monthLabel }}</td>
+                  <td>{{ row.activatedCount }} / {{ row.poolSize }}</td>
+                  <td class="rate-cell">{{ row.rate !== null ? row.rate + '%' : 'N/A' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="plot-card">
+          <div class="plot-header">
+            <h3>Live-Capital Deployment Rate</h3>
+            <span class="info-icon" title="Tribe users only. Date filters above are NOT applied. Shows cumulative rate as of today, no time window.">ℹ️</span>
+          </div>
+          <p class="plot-subtitle">% of a Tribe signup cohort with a REAL invested portfolio (kite/zebu), as of today — no 30-day limit</p>
+          <div class="mini-controls">
+            <div class="button-group">
+              <button [class.active]="plot4PeriodMode === 'months' && plot4Months === 1" (click)="onPlot4MonthsChange(1)">Last 1 Month</button>
+              <button [class.active]="plot4PeriodMode === 'months' && plot4Months === 3" (click)="onPlot4MonthsChange(3)">Last 3 Months</button>
+              <button [class.active]="plot4PeriodMode === 'custom'" (click)="plot4PeriodMode = 'custom'">Custom</button>
+            </div>
+            <ng-container *ngIf="plot4PeriodMode === 'custom'">
+              <input type="month" [(ngModel)]="plot4StartMonth" (change)="onPlot4CustomChange()" />
+              <span>to</span>
+              <input type="month" [(ngModel)]="plot4EndMonth" (change)="onPlot4CustomChange()" />
+            </ng-container>
+          </div>
+          <div class="plot-canvas">
+            <div *ngIf="loadingPlot4" class="plot-loading">Loading...</div>
+            <canvas
+              baseChart
+              *ngIf="!loadingPlot4 && liveCapitalRateConfig"
+              [data]="liveCapitalRateConfig.data"
+              [options]="liveCapitalRateConfig.options"
+              [type]="liveCapitalRateConfig.type">
+            </canvas>
+          </div>
+        </div>
+
+        <div class="plot-card wide">
+          <div class="plot-header">
+            <h3>Monthly Active Paid Users</h3>
+            <span class="info-icon" title="Date filters above are NOT applied. Always shows the last 12 calendar months, Tribe users only.">ℹ️</span>
+          </div>
+          <p class="plot-subtitle">Distinct Tribe (paid) users active per month — active = did ANY of the selected ledger actions that month. Last 12 months.</p>
+          <div class="ledger-select">
+            <label *ngFor="let opt of ledgerOptions" class="ledger-checkbox">
+              <input type="checkbox" [checked]="plot5Ledger.includes(opt.key)" (change)="onPlot5LedgerToggle(opt.key)" />
+              {{ opt.label }}
+            </label>
+          </div>
+          <div class="plot-canvas">
+            <div *ngIf="loadingPlot5" class="plot-loading">Computing across 12 months — first load can take up to 20s...</div>
+            <canvas
+              baseChart
+              *ngIf="!loadingPlot5 && monthlyActivePaidConfig"
+              [data]="monthlyActivePaidConfig.data"
+              [options]="monthlyActivePaidConfig.options"
+              [type]="monthlyActivePaidConfig.type">
+            </canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
