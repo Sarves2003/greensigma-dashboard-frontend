@@ -1,0 +1,185 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Funnel Analysis</h1>
+    <p class="subtitle">Where paid (Tribe) users actually come from</p>
+  </div>
+
+  <!-- Segment 1: period-filtered breakdown -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment1)">
+    <h2 class="section-title">
+      Conversions by Funnel — This Period
+      <span class="section-note">ℹ️ Funnel tag comes from referral code; users with no code default to SIGMA2026. Users who also attended a webinar get a combined tag (e.g. "SIGMA2026, KIRUBA2026").</span>
+    </h2>
+
+    <div class="mini-controls">
+      <div class="button-group">
+        <button [class.active]="period === 'thisMonth'" (click)="onPeriodChange('thisMonth')">This Month</button>
+        <button [class.active]="period === 'lastMonth'" (click)="onPeriodChange('lastMonth')">Last Month</button>
+        <button [class.active]="period === 'custom'" (click)="period = 'custom'">Custom</button>
+      </div>
+      <ng-container *ngIf="period === 'custom'">
+        <input type="date" [(ngModel)]="customStart" (change)="onCustomRangeChange()">
+        <span class="range-sep">to</span>
+        <input type="date" [(ngModel)]="customEnd" (change)="onCustomRangeChange()">
+      </ng-container>
+    </div>
+
+    <div *ngIf="loadingSegment1" class="loading-inline">Loading...</div>
+    <div *ngIf="errorSegment1" class="error">{{ errorSegment1 }}</div>
+
+    <ng-container *ngIf="!loadingSegment1 && !errorSegment1">
+      <div class="segment-summary">Total Tribe conversions this period: <strong>{{ segment1Total }}</strong></div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Funnel</th>
+              <th class="col-num">Count</th>
+              <th class="col-num">% Contribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of segment1Rows">
+              <td>
+                <span class="badge" [class.badge-blue]="!row.tag.includes(',')" [class.badge-purple]="row.tag.includes(',')">
+                  {{ row.tag }}
+                </span>
+              </td>
+              <td class="col-num">{{ row.count }}</td>
+              <td class="col-num">{{ row.percentage }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="segment1Rows.length === 0" class="no-data">No Tribe conversions in this period.</div>
+    </ng-container>
+  </section>
+
+  <!-- Segment 2: all-time per-funnel conversion table -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment2)">
+    <h2 class="section-title">
+      Funnel Conversion Rates — All Time
+      <span class="section-note">ℹ️ Total Leads = everyone tagged to that funnel (any status). Overlap rows (e.g. "SIGMA2026, KIRUBA2026") are counted once, separately — never folded into either parent funnel.</span>
+    </h2>
+
+    <div *ngIf="loadingSegment2" class="loading-inline">Loading...</div>
+    <div *ngIf="errorSegment2" class="error">{{ errorSegment2 }}</div>
+
+    <ng-container *ngIf="!loadingSegment2 && !errorSegment2">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Funnel</th>
+              <th class="col-num">Total Leads</th>
+              <th class="col-num">Tribe Conversions</th>
+              <th class="col-num">Conversion Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of segment2Rows">
+              <td>
+                <span class="badge" [class.badge-blue]="!row.tag.includes(',')" [class.badge-purple]="row.tag.includes(',')">
+                  {{ row.tag }}
+                </span>
+              </td>
+              <td class="col-num">{{ row.total | number }}</td>
+              <td class="col-num">{{ row.converted | number }}</td>
+              <td class="col-num rate-cell">{{ row.conversionRate }}%</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td>Total</td>
+              <td class="col-num">{{ segment2TotalLeads | number }}</td>
+              <td class="col-num">{{ segment2TotalConverted | number }}</td>
+              <td class="col-num"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </ng-container>
+  </section>
+
+  <!-- Segment 3: webinar batch analysis -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
+    <h2 class="section-title">
+      Webinar Batch Analysis
+      <span class="section-note">ℹ️ A conversion is credited to the most recent webinar batch on/before its paid date. Registrants = who signed up for that specific webinar occurrence.</span>
+    </h2>
+
+    <div class="mini-controls" *ngIf="authService.hasPermission(permissions.funnelDateManager)">
+      <button type="button" class="btn-manage" (click)="toggleDateManager()">
+        {{ showDateManager ? 'Hide' : 'Manage' }} Webinar Dates ({{ webinarDates.length }})
+      </button>
+    </div>
+
+    <div class="date-manager" *ngIf="showDateManager && authService.hasPermission(permissions.funnelDateManager)">
+      <div class="date-manager-add">
+        <input type="date" [(ngModel)]="newDateInput" placeholder="Add a new webinar date">
+        <button type="button" class="btn-apply" (click)="addDate()">Add Date</button>
+      </div>
+      <div *ngIf="dateManagerError" class="error">{{ dateManagerError }}</div>
+      <div class="date-chip-list" *ngIf="!loadingDates">
+        <span class="date-chip" *ngFor="let d of webinarDates">
+          {{ d.label }}
+          <button type="button" class="date-chip-remove" (click)="removeDate(d._id)">✕</button>
+        </span>
+      </div>
+    </div>
+
+    <div *ngIf="loadingSegment3" class="loading-inline">Loading...</div>
+    <div *ngIf="errorSegment3" class="error">{{ errorSegment3 }}</div>
+
+    <ng-container *ngIf="!loadingSegment3 && !errorSegment3">
+      <div class="segment-summary">
+        Total paid: <strong>{{ totalPaid }}</strong> · Resolved to a batch: <strong>{{ resolvedPaid }}</strong>
+        <span *ngIf="unresolvedCount > 0" class="unresolved-note">· {{ unresolvedCount }} could not be matched to any batch date and were excluded</span>
+      </div>
+
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Batch</th>
+              <th class="col-num">Registrants</th>
+              <th class="col-num">Conversions</th>
+              <th class="col-num">Conversion Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of batchRows">
+              <td>{{ row.label }}</td>
+              <td class="col-num">{{ row.registrants }}</td>
+              <td class="col-num">{{ row.converted }}</td>
+              <td class="col-num rate-cell">{{ row.conversionRate !== null ? row.conversionRate + '%' : 'N/A' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="metric-subsection-label">Conversion by Attempt Number</div>
+      <p class="section-subtitle">
+        Of the {{ attemptDataAvailable }} conversions with known registration history, how many webinar sign-ups it took before they paid.
+      </p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Attempt #</th>
+              <th class="col-num">Conversions</th>
+              <th class="col-num">% of Conversions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of attemptRows">
+              <td>{{ row.attempt }}{{ row.attempt === 1 ? ' (first webinar)' : '' }}</td>
+              <td class="col-num">{{ row.count }}</td>
+              <td class="col-num">{{ row.percentage }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+  </section>
+</div>

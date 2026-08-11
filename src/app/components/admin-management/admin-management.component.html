@@ -1,0 +1,136 @@
+<div class="admin-page">
+  <div class="page-header">
+    <h1>Admin Management</h1>
+    <p>Owner-only: manage dashboard accounts, roles, and per-tab / per-card access.</p>
+  </div>
+
+  <div class="error-banner" *ngIf="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading">
+    <!-- ============ Users ============ -->
+    <section class="panel">
+      <h2>Dashboard Users</h2>
+
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Login</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of users">
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+              <select [ngModel]="user.role" (ngModelChange)="changeRole(user, $event)">
+                <option *ngFor="let role of roles" [value]="role">{{ roleLabels[role] }}</option>
+              </select>
+            </td>
+            <td>
+              <button class="status-pill" [class.active]="user.active" (click)="toggleActive(user)">
+                {{ user.active ? 'Active' : 'Disabled' }}
+              </button>
+            </td>
+            <td class="muted">{{ user.lastLoginAt ? (user.lastLoginAt | date: 'medium') : 'Never' }}</td>
+            <td class="row-actions">
+              <button class="link-btn" (click)="openOverrides(user)">Permissions</button>
+              <button class="link-btn" (click)="resetPassword(user)">Reset Password</button>
+              <button class="link-btn danger" (click)="deleteUser(user)">Remove</button>
+            </td>
+          </tr>
+          <tr *ngIf="!users.length">
+            <td colspan="6" class="muted">No dashboard users yet.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <form class="create-user-form" (ngSubmit)="createUser()">
+        <h3>Add User</h3>
+        <div class="form-row">
+          <input type="text" placeholder="Name" [(ngModel)]="newUser.name" name="name" [disabled]="creatingUser" />
+          <input type="email" placeholder="Email" [(ngModel)]="newUser.email" name="email" [disabled]="creatingUser" />
+          <input type="password" placeholder="Password (min 8 chars)" [(ngModel)]="newUser.password" name="password" [disabled]="creatingUser" />
+          <select [(ngModel)]="newUser.role" name="role" [disabled]="creatingUser">
+            <option *ngFor="let role of roles" [value]="role">{{ roleLabels[role] }}</option>
+          </select>
+          <button type="submit" class="primary-btn" [disabled]="creatingUser">
+            {{ creatingUser ? 'Adding…' : 'Add User' }}
+          </button>
+        </div>
+        <div class="error-inline" *ngIf="createError">{{ createError }}</div>
+      </form>
+    </section>
+
+    <!-- ============ Role permission matrix ============ -->
+    <section class="panel">
+      <h2>Role Default Permissions</h2>
+      <p class="panel-hint">Toggling a cell changes the default for every user in that role (unless overridden per-user below).</p>
+
+      <div class="matrix-wrap">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th class="perm-col">Tab / Card</th>
+              <th *ngFor="let role of roles">{{ roleLabels[role] }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let tab of tabPermissions">
+              <tr class="tab-row">
+                <td>{{ tab.label }}</td>
+                <td *ngFor="let role of roles">
+                  <input type="checkbox" [checked]="isRolePermitted(role, tab.key)" (change)="toggleRolePermission(role, tab.key)" />
+                </td>
+              </tr>
+              <tr class="card-row" *ngFor="let card of cardsForTab(tab.key)">
+                <td class="card-label">↳ {{ card.label }}</td>
+                <td *ngFor="let role of roles">
+                  <input type="checkbox" [checked]="isRolePermitted(role, card.key)" (change)="toggleRolePermission(role, card.key)" />
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-container>
+
+  <div class="loading" *ngIf="loading">Loading admin data…</div>
+
+  <!-- ============ Per-user override modal ============ -->
+  <div class="modal-backdrop" *ngIf="overrideUserId" (click)="closeOverrides()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Permission Overrides</h3>
+      <p class="panel-hint">Checked items differ from this user's role default and will be saved as an explicit override.</p>
+
+      <div class="override-list">
+        <ng-container *ngFor="let tab of tabPermissions">
+          <label class="override-row" [class.deviating]="isOverrideDeviating(tab.key)">
+            <input type="checkbox" [checked]="isOverrideChecked(tab.key)" (change)="toggleOverride(tab.key)" />
+            {{ tab.label }}
+          </label>
+          <label
+            class="override-row card"
+            *ngFor="let card of cardsForTab(tab.key)"
+            [class.deviating]="isOverrideDeviating(card.key)"
+          >
+            <input type="checkbox" [checked]="isOverrideChecked(card.key)" (change)="toggleOverride(card.key)" />
+            ↳ {{ card.label }}
+          </label>
+        </ng-container>
+      </div>
+
+      <div class="modal-actions">
+        <button class="secondary-btn" (click)="closeOverrides()">Cancel</button>
+        <button class="primary-btn" (click)="saveOverrides()" [disabled]="savingOverrides">
+          {{ savingOverrides ? 'Saving…' : 'Save Overrides' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

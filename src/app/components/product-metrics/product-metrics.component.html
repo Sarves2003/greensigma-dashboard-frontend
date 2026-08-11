@@ -1,0 +1,265 @@
+<div class="product-metrics-container">
+  <div class="header">
+    <h1>Product Metrics</h1>
+    <p class="subtitle">Signup, engagement, and activation numbers</p>
+  </div>
+
+  <div *ngIf="error" class="error-alert">{{ error }}</div>
+
+  <!-- Segment 1: Signup & Engagement -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsSignup)">
+    <h2 class="section-title">Signup &amp; Engagement</h2>
+    <app-filter-bar (filterChange)="onFilterChange($event)"></app-filter-bar>
+
+    <div *ngIf="loading" class="loading-inline">Loading metrics...</div>
+
+    <div *ngIf="!loading" class="stat-tile-grid">
+      <app-stat-tile
+        label="Total New Signups"
+        [value]="metrics.newSignups"
+        color="blue"
+        tooltip="Users registered in the selected period">
+      </app-stat-tile>
+      <app-stat-tile
+        label="Signups Logged In"
+        [value]="metrics.distinctLoginUsers"
+        color="teal"
+        tooltip="Of the new signups in this period, how many logged in at least once">
+      </app-stat-tile>
+      <app-stat-tile
+        label="Login Rate"
+        [value]="(metrics.loginRate ?? 0) + '%'"
+        color="green"
+        tooltip="% of new signups in this period who logged in at least once">
+      </app-stat-tile>
+      <app-stat-tile
+        label="New Premium Users"
+        [value]="metrics.newPaidCustomers"
+        color="purple"
+        tooltip="New signups in the selected period with type = Tribe">
+      </app-stat-tile>
+      <app-stat-tile
+        label="Active User Count"
+        [value]="metrics.activeUserCount"
+        color="orange"
+        tooltip="New signups with at least 1 action across Stock Score, Backtest, ETF Score, ETF Backtest, Intraday, Portfolio, or Broker Connect in the selected period">
+      </app-stat-tile>
+      <app-stat-tile
+        label="Active User Rate"
+        [value]="(metrics.activeUserRate ?? 0) + '%'"
+        color="red"
+        tooltip="% of new signups in this period who were active (see Active User Count)">
+      </app-stat-tile>
+    </div>
+  </section>
+
+  <!-- Segment 2: Activation Rate -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsActivation)">
+    <h2 class="section-title">
+      Activation Rate
+      <span class="section-note">ℹ️ Real portfolios only, Tribe signups. Ignores the filter above — uses its own controls below.</span>
+    </h2>
+    <p class="section-subtitle">
+      Per signup month: % of Tribe users who created a real portfolio within {{ activationDayWindow }} days of their own signup date
+    </p>
+
+    <div class="mini-controls">
+      <div class="button-group">
+        <button [class.active]="activationBlock === 'current'" (click)="onActivationBlockChange('current')">Current 3 Months</button>
+        <button [class.active]="activationBlock === 'previous'" (click)="onActivationBlockChange('previous')">Previous 3 Months</button>
+        <button [class.active]="activationBlock === 'custom'" (click)="activationBlock = 'custom'">Custom</button>
+      </div>
+      <ng-container *ngIf="activationBlock === 'custom'">
+        <input type="month" [(ngModel)]="activationStartMonth" (change)="onActivationCustomChange()">
+        <span>to</span>
+        <input type="month" [(ngModel)]="activationEndMonth" (change)="onActivationCustomChange()">
+      </ng-container>
+    </div>
+
+    <div class="day-window-card">
+      <span class="day-window-label">Activation Window</span>
+      <div class="button-group">
+        <button
+          *ngFor="let d of dayWindowOptions"
+          [class.active]="activationDayWindow === d"
+          (click)="onDayWindowChange(d)">
+          {{ d }} Days
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="loadingActivation" class="loading-inline">Loading...</div>
+    <div *ngIf="!loadingActivation && activationRateRows.length === 0" class="no-data">
+      No Tribe signups in this range.
+    </div>
+    <table *ngIf="!loadingActivation && activationRateRows.length > 0" class="mini-table">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Activated / Signups</th>
+          <th>Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of activationRateRows">
+          <td>{{ row.monthLabel }}</td>
+          <td>{{ row.activatedCount }} / {{ row.poolSize }}</td>
+          <td class="rate-cell">{{ row.rate !== null ? row.rate + '%' : 'N/A' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Segment 3: Active User Flow -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsActiveUserCards)">
+    <h2 class="section-title">
+      Active User Flow
+      <span class="section-note">ℹ️ Active = did ≥1 action in Stock Score, Stock Backtest, ETF Score, ETF Backtest, Intraday, Portfolio, or Broker Connect — login alone doesn't count. Rolling windows always end today, no date picker needed.</span>
+    </h2>
+
+    <div class="mini-controls">
+      <span class="filter-label">User Type:</span>
+      <div class="button-group">
+        <button [class.active]="flowUserType === 'all'" (click)="onFlowUserTypeChange('all')">All</button>
+        <button [class.active]="flowUserType === 'Tribe'" (click)="onFlowUserTypeChange('Tribe')">Tribe</button>
+        <button [class.active]="flowUserType === 'Free'" (click)="onFlowUserTypeChange('Free')">Free</button>
+        <button [class.active]="flowUserType === 'Webinar'" (click)="onFlowUserTypeChange('Webinar')">Webinar</button>
+      </div>
+    </div>
+
+    <div class="flow-card-grid">
+      <!-- DAU -->
+      <div class="flow-card">
+        <h3>Daily Active Users</h3>
+        <div class="day-window-card">
+          <span class="day-window-label">Window</span>
+          <div class="button-group">
+            <button *ngFor="let d of dayWindowOptions" [class.active]="dauWindow === d" (click)="onDauWindowChange(d)">{{ d }}D</button>
+          </div>
+        </div>
+        <div class="mode-toggle">
+          <div class="button-group">
+            <button [class.active]="dauMode === 'avg'" (click)="onDauModeChange('avg')">Avg</button>
+            <button [class.active]="dauMode === 'sum'" (click)="onDauModeChange('sum')">Sum</button>
+          </div>
+        </div>
+
+        <div *ngIf="loadingDau" class="loading-inline">Loading...</div>
+        <ng-container *ngIf="!loadingDau">
+          <div class="flow-headline">{{ dauValue }}</div>
+          <div class="flow-headline-label">
+            {{ dauMode === 'avg' ? 'Avg Daily Active Users' : 'Total Unique Active Users' }} (last {{ dauWindow }} days)
+          </div>
+          <div class="flow-secondary-stat">Active Today: {{ dauToday }}</div>
+        </ng-container>
+      </div>
+
+      <!-- Monthly Active Users (MAU) -->
+      <div class="flow-card">
+        <h3>Monthly Active Users (MAU)</h3>
+        <div class="day-window-card">
+          <span class="day-window-label">Period</span>
+          <div class="button-group">
+            <button
+              *ngFor="let p of monthPeriodOptions"
+              [class.active]="mauPeriod === p.value"
+              (click)="onMauPeriodChange(p.value)">{{ p.label }}</button>
+          </div>
+        </div>
+        <div class="mode-toggle">
+          <div class="button-group">
+            <button [class.active]="mauMode === 'avg'" (click)="onMauModeChange('avg')">Avg</button>
+            <button [class.active]="mauMode === 'sum'" (click)="onMauModeChange('sum')">Sum</button>
+          </div>
+        </div>
+
+        <div *ngIf="loadingMau" class="loading-inline">Loading...</div>
+        <ng-container *ngIf="!loadingMau">
+          <div class="flow-headline">{{ mauValue }}</div>
+          <div class="flow-headline-label">
+            {{ mauMode === 'avg' ? 'Avg Active Users Per Month' : 'Total Unique Active Users' }} — {{ periodLabel(mauPeriod) }}
+          </div>
+        </ng-container>
+      </div>
+
+      <!-- Stickiness Ratio -->
+      <div class="flow-card">
+        <h3>Stickiness Ratio</h3>
+        <div class="day-window-card">
+          <span class="day-window-label">Period</span>
+          <div class="button-group">
+            <button
+              *ngFor="let p of monthPeriodOptions"
+              [class.active]="ratioPeriod === p.value"
+              (click)="onRatioPeriodChange(p.value)">{{ p.label }}</button>
+          </div>
+        </div>
+
+        <div *ngIf="loadingRatio" class="loading-inline">Loading...</div>
+        <ng-container *ngIf="!loadingRatio">
+          <div class="flow-headline">{{ ratioValue }}%</div>
+          <div class="flow-headline-label">Avg DAU ÷ MAU — {{ periodLabel(ratioPeriod) }}</div>
+        </ng-container>
+      </div>
+    </div>
+  </section>
+
+  <!-- Segment 4: Active User Breakdown -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsActiveUserBreakdown)">
+    <h2 class="section-title">
+      Active User Breakdown
+      <span class="section-note">ℹ️ Active = did ≥1 action in Stock Score, Stock Backtest, ETF Score, ETF Backtest, Intraday, Portfolio, or Broker Connect — login alone doesn't count.</span>
+    </h2>
+
+    <div class="breakdown-controls">
+      <div class="filter-block">
+        <span class="filter-label">Type:</span>
+        <div class="button-group">
+          <button [class.active]="breakdownUserType === 'all'" (click)="onBreakdownUserTypeChange('all')">All</button>
+          <button [class.active]="breakdownUserType === 'Tribe'" (click)="onBreakdownUserTypeChange('Tribe')">Tribe</button>
+          <button [class.active]="breakdownUserType === 'Free'" (click)="onBreakdownUserTypeChange('Free')">Free</button>
+          <button [class.active]="breakdownUserType === 'Webinar'" (click)="onBreakdownUserTypeChange('Webinar')">Webinar</button>
+        </div>
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Metric:</span>
+        <div class="button-group">
+          <button [class.active]="breakdownMode === 'avg'" (click)="onBreakdownModeChange('avg')">Avg</button>
+          <button [class.active]="breakdownMode === 'sum'" (click)="onBreakdownModeChange('sum')">Sum (Unique)</button>
+        </div>
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Group By:</span>
+        <div class="button-group">
+          <button
+            *ngFor="let g of granularityOptions"
+            [class.active]="breakdownGranularity === g.value"
+            (click)="onBreakdownGranularityChange(g.value)">{{ g.label }}</button>
+        </div>
+      </div>
+
+      <div class="filter-block">
+        <span class="filter-label">Date Range:</span>
+        <input type="date" [(ngModel)]="breakdownStartDate">
+        <span class="range-sep">to</span>
+        <input type="date" [(ngModel)]="breakdownEndDate">
+      </div>
+
+      <button type="button" class="btn-apply" (click)="applyBreakdownFilters()">Apply Filters</button>
+    </div>
+
+    <div *ngIf="loadingBreakdown" class="loading-inline">Loading...</div>
+    <app-echart-bar
+      *ngIf="!loadingBreakdown"
+      [categories]="breakdownLabels"
+      [values]="breakdownValues"
+      [seriesName]="breakdownMode === 'avg' ? 'Avg Active Users' : 'Unique Active Users'"
+      color="#0369a1">
+    </app-echart-bar>
+    <div *ngIf="!loadingBreakdown && breakdownBars.length === 0" class="no-data">
+      No activity in this date range.
+    </div>
+  </section>
+</div>

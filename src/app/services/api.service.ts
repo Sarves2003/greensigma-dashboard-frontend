@@ -7,7 +7,7 @@ import { APIResponse, KPIResponse, ChartDataPoint, User, PaginatedResponse } fro
   providedIn: 'root',
 })
 export class ApiService {
-  private baseUrl = 'https://greensigma-dashboard-backend.onrender.com/api';
+  private baseUrl = 'http://localhost:5000/api';
 
   constructor(private http: HttpClient) {}
 
@@ -44,6 +44,18 @@ export class ApiService {
 
   getLiveCapitalRatePlot(params: any): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/live-capital-rate`, { params: this.buildParams(params) });
+  }
+
+  getActiveUserFlowPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/active-user-flow`, { params: this.buildParams(params) });
+  }
+
+  getActiveUserFlowMonthlyPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/active-user-flow-monthly`, { params: this.buildParams(params) });
+  }
+
+  getActiveUserBreakdownPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/active-user-breakdown`, { params: this.buildParams(params) });
   }
 
   getMonthlyActivePaidPlot(params: any): Observable<APIResponse<any>> {
@@ -235,6 +247,10 @@ export class ApiService {
   }
 
   // GS Health
+  getGsHealthKeyMetrics(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/key-metrics`);
+  }
+
   getGsHealthSummary(params: any): Observable<APIResponse<any>> {
     let httpParams = new HttpParams();
     Object.keys(params).forEach((key) => {
@@ -284,8 +300,75 @@ export class ApiService {
     });
   }
 
+  // Unrealized P&L
+  getUnrealizedPnl(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/unrealized-pnl`);
+  }
+
+  getUserContacts(userIds: string[]): Observable<APIResponse<any[]>> {
+    return this.http.post<APIResponse<any[]>>(`${this.baseUrl}/users/contacts`, { userIds });
+  }
+
+  // Funnel Analysis
+  getFunnelSegment1(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/segment1`, { params: this.buildParams(params) });
+  }
+
+  getFunnelSegment2(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/segment2`);
+  }
+
+  getFunnelSegment3(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/segment3`);
+  }
+
+  getWebinarBatchDates(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/funnel-analysis/webinar-dates`);
+  }
+
+  addWebinarBatchDate(date: string): Observable<APIResponse<any[]>> {
+    return this.http.post<APIResponse<any[]>>(`${this.baseUrl}/funnel-analysis/webinar-dates`, { date });
+  }
+
+  removeWebinarBatchDate(id: string): Observable<APIResponse<any[]>> {
+    return this.http.delete<APIResponse<any[]>>(`${this.baseUrl}/funnel-analysis/webinar-dates/${id}`);
+  }
+
   // Health check
   getHealth(): Observable<any> {
     return this.http.get(`${this.baseUrl}/health`);
+  }
+
+  // Admin (Owner-only)
+  getPermissionRegistry(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/admin/permission-registry`);
+  }
+
+  getDashboardUsers(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/admin/users`);
+  }
+
+  createDashboardUser(payload: { name: string; email: string; password: string; role: string }): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/admin/users`, payload);
+  }
+
+  updateDashboardUser(id: string, payload: any): Observable<APIResponse<any>> {
+    return this.http.put<APIResponse<any>>(`${this.baseUrl}/admin/users/${id}`, payload);
+  }
+
+  deleteDashboardUser(id: string): Observable<APIResponse<any>> {
+    return this.http.delete<APIResponse<any>>(`${this.baseUrl}/admin/users/${id}`);
+  }
+
+  resetDashboardUserPassword(id: string, newPassword: string): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/admin/users/${id}/reset-password`, { newPassword });
+  }
+
+  getRolePermissions(): Observable<APIResponse<Record<string, string[]>>> {
+    return this.http.get<APIResponse<Record<string, string[]>>>(`${this.baseUrl}/admin/role-permissions`);
+  }
+
+  setRolePermissions(role: string, permissions: string[]): Observable<APIResponse<any>> {
+    return this.http.put<APIResponse<any>>(`${this.baseUrl}/admin/role-permissions/${role}`, { permissions });
   }
 }

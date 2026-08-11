@@ -1,0 +1,41 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-mark">📊</div>
+      <h1>Sigma Scanner</h1>
+      <p>Internal Dashboard</p>
+    </div>
+
+    <form (ngSubmit)="submit()">
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input
+          type="email"
+          name="email"
+          [(ngModel)]="email"
+          placeholder="you@greensigma.com"
+          autocomplete="username"
+          [disabled]="loading"
+        />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Password</span>
+        <input
+          type="password"
+          name="password"
+          [(ngModel)]="password"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          [disabled]="loading"
+        />
+      </label>
+
+      <div class="error-banner" *ngIf="error">{{ error }}</div>
+
+      <button type="submit" class="submit-btn" [disabled]="loading">
+        {{ loading ? 'Signing in…' : 'Sign In' }}
+      </button>
+    </form>
+  </div>
+</div>

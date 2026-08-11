@@ -1,0 +1,262 @@
+.product-metrics-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+
+  h1 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    color: #6b7280;
+    margin: 0.25rem 0 0 0;
+  }
+}
+
+.error-alert {
+  padding: 1rem 1.5rem;
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.loading-inline {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.stat-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.mini-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+
+  input[type='month'] {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  span {
+    color: #6b7280;
+    font-size: 0.8rem;
+  }
+}
+
+.button-group {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+
+  button {
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background-color: white;
+    color: #4b5563;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: #f3f4f6;
+    }
+
+    &.active {
+      background-color: #0369a1;
+      color: white;
+      border-color: #0369a1;
+    }
+  }
+}
+
+.day-window-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  background-color: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+
+  .day-window-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #1f2937;
+    white-space: nowrap;
+  }
+}
+
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    background: #f9fafb;
+    color: #4b5563;
+    font-weight: 600;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    color: #1f2937;
+  }
+
+  .rate-cell {
+    font-weight: 700;
+    color: #0369a1;
+  }
+}
+
+.no-data {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #1f2937 !important;
+  white-space: nowrap;
+}
+
+.flow-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.flow-card {
+  background-color: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+
+  h3 {
+    margin: 0 0 1rem 0;
+    color: #1f2937;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .day-window-card {
+    background-color: white;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 1rem;
+
+    .button-group button {
+      padding: 0.3rem 0.55rem;
+      font-size: 0.75rem;
+    }
+  }
+
+  .mode-toggle {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+
+    .button-group button {
+      padding: 0.3rem 0.7rem;
+      font-size: 0.75rem;
+    }
+  }
+}
+
+.flow-headline {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #0369a1;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-headline-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
+.flow-secondary-stat {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.breakdown-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background-color: #f9fafb;
+  border-radius: 10px;
+}
+
+.filter-block {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+
+  input[type='date'] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .range-sep {
+    color: #6b7280;
+    font-size: 0.85rem;
+  }
+}
+
+.btn-apply {
+  padding: 0.5rem 1.1rem;
+  background-color: #0369a1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #0284c7;
+  }
+}

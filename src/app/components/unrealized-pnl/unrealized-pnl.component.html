@@ -1,0 +1,417 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Live Unrealized P&amp;L</h1>
+    <p class="subtitle">Real-money portfolio performance, right now</p>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading live portfolio data...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error">
+    <!-- Summary Row 1: hero totals -->
+    <div class="metrics-grid hero-grid">
+      <div class="summary-card hero-card">
+        <span class="summary-icon">💰</span>
+        <span class="summary-label">Total Invested</span>
+        <span class="summary-value">₹{{ totals.invested | number: '1.0-0' }}</span>
+      </div>
+      <div class="summary-card hero-card">
+        <span class="summary-icon">📈</span>
+        <span class="summary-label">Total Current Value</span>
+        <span class="summary-value">₹{{ totals.current | number: '1.0-0' }}</span>
+      </div>
+      <div class="summary-card hero-card" [class.positive]="totals.pnl >= 0" [class.negative]="totals.pnl < 0">
+        <span class="summary-icon">⚖️</span>
+        <span class="summary-label">Total Unrealized P&amp;L</span>
+        <span class="summary-value">₹{{ totals.pnl | number: '1.0-0' }}</span>
+      </div>
+    </div>
+
+    <!-- Summary Row 2: portfolio-level standouts -->
+    <div class="metrics-grid stats-grid">
+      <div class="summary-card split-card">
+        <span class="summary-icon">🥊</span>
+        <span class="summary-label">Winning / Losing Portfolios</span>
+        <span class="summary-value split-value">
+          <span class="positive">{{ positiveCount }}</span>
+          <span class="split-divider">/</span>
+          <span class="negative">{{ negativeCount }}</span>
+        </span>
+      </div>
+      <div class="summary-card positive">
+        <span class="summary-icon">🏆</span>
+        <span class="summary-label">Biggest Winner (ROI%)</span>
+        <span class="summary-value">{{ winner ? (winner.pnlPercent | number: '1.2-2') + '%' : '-' }}</span>
+        <span class="summary-sub" *ngIf="winner">{{ winner.portfolioName }} · {{ winner.userId }}</span>
+      </div>
+      <div class="summary-card negative">
+        <span class="summary-icon">📉</span>
+        <span class="summary-label">Worst Loss (ROI%)</span>
+        <span class="summary-value">{{ loser ? (loser.pnlPercent | number: '1.2-2') + '%' : '-' }}</span>
+        <span class="summary-sub" *ngIf="loser">{{ loser.portfolioName }} · {{ loser.userId }}</span>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <section class="segment-card filters-card">
+      <h2 class="section-title">Filters</h2>
+
+      <div class="date-filter-section">
+        <div class="date-filter-group">
+          <label class="filter-label">Created At:</label>
+          <button type="button" class="btn-preset" (click)="setThisMonth('created')">This Month</button>
+          <button type="button" class="btn-preset" (click)="setLastMonth('created')">Last Month</button>
+          <label>From</label>
+          <input type="date" [(ngModel)]="createdFrom" (change)="onDateFilterChange()">
+          <label>To</label>
+          <input type="date" [(ngModel)]="createdTo" (change)="onDateFilterChange()">
+          <button
+            type="button"
+            class="btn-clear-filter"
+            *ngIf="createdFrom || createdTo"
+            (click)="clearCreatedFilter()">
+            ✕ Clear
+          </button>
+        </div>
+
+        <div class="date-filter-group">
+          <label class="filter-label">Updated At:</label>
+          <button type="button" class="btn-preset" (click)="setThisMonth('updated')">This Month</button>
+          <button type="button" class="btn-preset" (click)="setLastMonth('updated')">Last Month</button>
+          <label>From</label>
+          <input type="date" [(ngModel)]="updatedFrom" (change)="onDateFilterChange()">
+          <label>To</label>
+          <input type="date" [(ngModel)]="updatedTo" (change)="onDateFilterChange()">
+          <button
+            type="button"
+            class="btn-clear-filter"
+            *ngIf="updatedFrom || updatedTo"
+            (click)="clearUpdatedFilter()">
+            ✕ Clear
+          </button>
+        </div>
+      </div>
+
+      <div class="secondary-filter-section">
+        <div class="filter-block">
+          <label class="filter-label">Portfolio Type:</label>
+          <div class="segmented-control">
+            <button
+              type="button"
+              [class.active]="portfolioTypeFilter === 'all'"
+              (click)="onPortfolioTypeChange('all')">All</button>
+            <button
+              type="button"
+              [class.active]="portfolioTypeFilter === 'automated'"
+              (click)="onPortfolioTypeChange('automated')">Automated</button>
+            <button
+              type="button"
+              [class.active]="portfolioTypeFilter === 'manual'"
+              (click)="onPortfolioTypeChange('manual')">Manual</button>
+          </div>
+        </div>
+
+        <div class="filter-block inactive-block">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="excludeInactive" (change)="onInactiveSettingsChange()">
+            Don't include inactive portfolios
+          </label>
+
+          <ng-container *ngIf="excludeInactive">
+            <span class="inactive-rule">No update in more than</span>
+            <input
+              type="number"
+              min="0"
+              class="months-input"
+              [(ngModel)]="staleUpdateMonths"
+              (change)="onInactiveSettingsChange()">
+            <span class="inactive-rule">month(s)</span>
+
+            <span class="inactive-rule">OR no rebalance within</span>
+            <input
+              type="number"
+              min="0"
+              class="months-input"
+              [(ngModel)]="noRebalanceMonths"
+              (change)="onInactiveSettingsChange()">
+            <span class="inactive-rule">month(s) of creation</span>
+          </ng-container>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROI% Distribution -->
+    <section class="segment-card chart-container">
+      <h3>ROI% Distribution ({{ filteredPortfolios.length }} portfolios)</h3>
+      <app-chart [data]="histogramData" [type]="'bar'" [title]="'Portfolio Count'"></app-chart>
+    </section>
+
+    <section class="segment-card table-section">
+      <div class="table-header">
+        <h2>Live Real Portfolios ({{ filteredPortfolios.length }})</h2>
+        <div class="table-header-controls">
+          <label class="page-size-label">
+            Rows:
+            <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+            </select>
+          </label>
+          <input
+            #searchInput
+            type="text"
+            class="search-box"
+            placeholder="Search by userId or portfolio name..."
+            (input)="onSearch(searchInput.value)">
+          <button
+            type="button"
+            class="btn-export"
+            *ngIf="authService.hasPermission(permissions.unrealizedPnlExport)"
+            (click)="openExportModal()">⬇ Download Clients</button>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="data-table sortable">
+          <thead>
+            <tr>
+              <th (click)="onSort('userId')" [class.active]="sortBy === 'userId'">
+                User ID
+                <span *ngIf="sortBy === 'userId'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th (click)="onSort('portfolioName')" [class.active]="sortBy === 'portfolioName'">
+                Portfolio Name
+                <span *ngIf="sortBy === 'portfolioName'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-center">Type</th>
+              <th class="col-num" (click)="onSort('investedValue')" [class.active]="sortBy === 'investedValue'">
+                Invested (₹)
+                <span *ngIf="sortBy === 'investedValue'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onSort('currentValue')" [class.active]="sortBy === 'currentValue'">
+                Current Value (₹)
+                <span *ngIf="sortBy === 'currentValue'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onSort('pnl')" [class.active]="sortBy === 'pnl'">
+                P&amp;L (₹)
+                <span *ngIf="sortBy === 'pnl'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onSort('pnlPercent')" [class.active]="sortBy === 'pnlPercent'">
+                P&amp;L (%)
+                <span *ngIf="sortBy === 'pnlPercent'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-center" (click)="onSort('createdAt')" [class.active]="sortBy === 'createdAt'">
+                Created At
+                <span *ngIf="sortBy === 'createdAt'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-center" (click)="onSort('updatedAt')" [class.active]="sortBy === 'updatedAt'">
+                Updated At
+                <span *ngIf="sortBy === 'updatedAt'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onSort('rebalanceCount')" [class.active]="sortBy === 'rebalanceCount'">
+                Rebalances
+                <span *ngIf="sortBy === 'rebalanceCount'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onSort('stocksTraded')" [class.active]="sortBy === 'stocksTraded'">
+                Stocks Traded
+                <span *ngIf="sortBy === 'stocksTraded'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let portfolio of pagedPortfolios" class="clickable-row" (click)="openDetail(portfolio)">
+              <td>{{ portfolio.userId }}</td>
+              <td>{{ portfolio.portfolioName }}</td>
+              <td class="col-center">
+                <span class="badge" [class.badge-blue]="portfolio.fromBacktest" [class.badge-grey]="!portfolio.fromBacktest">
+                  {{ portfolio.fromBacktest ? 'Automated' : 'Manual' }}
+                </span>
+              </td>
+              <td class="col-num">{{ portfolio.investedValue | number: '1.0-2' }}</td>
+              <td class="col-num">{{ portfolio.currentValue | number: '1.0-2' }}</td>
+              <td class="col-num" [class.positive]="portfolio.pnl >= 0" [class.negative]="portfolio.pnl < 0">
+                {{ portfolio.pnl | number: '1.0-2' }}
+              </td>
+              <td class="col-num" [class.positive]="portfolio.pnl >= 0" [class.negative]="portfolio.pnl < 0">
+                {{ portfolio.pnlPercent | number: '1.0-2' }}%
+              </td>
+              <td class="col-center">{{ formatDate(portfolio.createdAt) }}</td>
+              <td class="col-center">{{ formatDate(portfolio.updatedAt) }}</td>
+              <td class="col-num">{{ portfolio.rebalanceCount }}</td>
+              <td class="col-num">{{ portfolio.stocksTraded }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="filteredPortfolios.length === 0" class="no-data">
+        No live real portfolios found.
+      </div>
+
+      <div class="pagination" *ngIf="filteredPortfolios.length > 0">
+        <span class="page-info">
+          Showing {{ pageRangeStart }}–{{ pageRangeEnd }} of {{ filteredPortfolios.length }}
+        </span>
+        <div class="pagination-controls">
+          <button [disabled]="currentPage === 1" (click)="prevPage()">← Previous</button>
+          <span class="page-number">Page {{ currentPage }} of {{ totalPages }}</span>
+          <button [disabled]="currentPage === totalPages" (click)="nextPage()">Next →</button>
+        </div>
+      </div>
+    </section>
+  </ng-container>
+
+  <!-- Holdings Detail Modal -->
+  <div class="modal-overlay" *ngIf="showDetailModal" (click)="closeDetail()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <h2>Holdings — {{ selectedPortfolio?.portfolioName }} ({{ selectedPortfolio?.userId }})</h2>
+          <div class="modal-header-stats">
+            <span class="badge badge-green">{{ holdingPositiveCount }} Positive</span>
+            <span class="badge badge-red">{{ holdingNegativeCount }} Negative</span>
+          </div>
+        </div>
+        <button class="btn-close" (click)="closeDetail()">✕</button>
+      </div>
+
+      <div class="modal-body" *ngIf="selectedPortfolio">
+        <div class="holdings-toolbar">
+          <input
+            #holdingSearchInput
+            type="text"
+            class="search-box"
+            placeholder="Search by symbol..."
+            (input)="onHoldingSearch(holdingSearchInput.value)">
+        </div>
+
+        <table class="detail-table sortable">
+          <thead>
+            <tr>
+              <th (click)="onHoldingSort('tradingsymbol')" [class.active]="holdingSortBy === 'tradingsymbol'">
+                Symbol
+                <span *ngIf="holdingSortBy === 'tradingsymbol'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th (click)="onHoldingSort('exchange')" [class.active]="holdingSortBy === 'exchange'">
+                Exchange
+                <span *ngIf="holdingSortBy === 'exchange'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onHoldingSort('quantity')" [class.active]="holdingSortBy === 'quantity'">
+                Qty
+                <span *ngIf="holdingSortBy === 'quantity'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onHoldingSort('entryPrice')" [class.active]="holdingSortBy === 'entryPrice'">
+                Entry Price
+                <span *ngIf="holdingSortBy === 'entryPrice'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onHoldingSort('lastPrice')" [class.active]="holdingSortBy === 'lastPrice'">
+                Last Price
+                <span *ngIf="holdingSortBy === 'lastPrice'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onHoldingSort('investedValue')" [class.active]="holdingSortBy === 'investedValue'">
+                Invested (₹)
+                <span *ngIf="holdingSortBy === 'investedValue'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onHoldingSort('currentValue')" [class.active]="holdingSortBy === 'currentValue'">
+                Current Value (₹)
+                <span *ngIf="holdingSortBy === 'currentValue'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onHoldingSort('pnl')" [class.active]="holdingSortBy === 'pnl'">
+                P&amp;L (₹)
+                <span *ngIf="holdingSortBy === 'pnl'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onHoldingSort('pnlPercent')" [class.active]="holdingSortBy === 'pnlPercent'">
+                P&amp;L (%)
+                <span *ngIf="holdingSortBy === 'pnlPercent'" class="sort-icon">{{ holdingSortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let holding of filteredHoldings">
+              <td>{{ holding.tradingsymbol }}</td>
+              <td>{{ holding.exchange }}</td>
+              <td class="col-num">{{ holding.quantity }}</td>
+              <td class="col-num">{{ holding.entryPrice | number: '1.2-2' }}</td>
+              <td class="col-num">{{ holding.lastPrice | number: '1.2-2' }}</td>
+              <td class="col-num">{{ holding.investedValue | number: '1.0-2' }}</td>
+              <td class="col-num">{{ holding.currentValue | number: '1.0-2' }}</td>
+              <td class="col-num" [class.positive]="holding.pnl >= 0" [class.negative]="holding.pnl < 0">
+                {{ holding.pnl | number: '1.0-2' }}
+              </td>
+              <td class="col-num" [class.positive]="holding.pnl >= 0" [class.negative]="holding.pnl < 0">
+                {{ holding.pnlPercent | number: '1.0-2' }}%
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td colspan="5">Total</td>
+              <td class="col-num">{{ selectedPortfolio.investedValue | number: '1.0-2' }}</td>
+              <td class="col-num">{{ selectedPortfolio.currentValue | number: '1.0-2' }}</td>
+              <td class="col-num" [class.positive]="selectedPortfolio.pnl >= 0" [class.negative]="selectedPortfolio.pnl < 0">
+                {{ selectedPortfolio.pnl | number: '1.0-2' }}
+              </td>
+              <td class="col-num" [class.positive]="selectedPortfolio.pnl >= 0" [class.negative]="selectedPortfolio.pnl < 0">
+                {{ selectedPortfolio.pnlPercent | number: '1.0-2' }}%
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div *ngIf="filteredHoldings.length === 0" class="no-data">
+          No holdings match your search.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client List Export Modal -->
+  <div class="modal-overlay" *ngIf="showExportModal" (click)="closeExportModal()">
+    <div class="modal-content export-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Download Client List</h2>
+        <button class="btn-close" (click)="closeExportModal()">✕</button>
+      </div>
+
+      <div class="modal-body export-modal-body">
+        <p class="export-hint">
+          Exports the top N portfolios from the currently filtered &amp; sorted table ({{ filteredPortfolios.length }} match, sorted by {{ sortBy }}).
+        </p>
+
+        <div class="export-field">
+          <label>Number of top clients</label>
+          <input type="number" min="1" [(ngModel)]="exportTopN">
+        </div>
+
+        <div class="export-field">
+          <label>Export format</label>
+          <div class="segmented-control">
+            <button type="button" [class.active]="exportFormat === 'aisensy'" (click)="exportFormat = 'aisensy'">AiSensy</button>
+            <button type="button" [class.active]="exportFormat === 'periskope'" (click)="exportFormat = 'periskope'">Periskope</button>
+          </div>
+        </div>
+
+        <ng-container *ngIf="exportFormat === 'aisensy'">
+          <div class="export-field">
+            <label>Source</label>
+            <input type="text" [(ngModel)]="exportSource" placeholder="e.g. ORGANIC">
+          </div>
+          <div class="export-field">
+            <label>Tags</label>
+            <input type="text" [(ngModel)]="exportTags" placeholder="e.g. B56paidG1">
+          </div>
+          <p class="export-hint">CSV columns: Name, Mobile Number, Source, Tags</p>
+        </ng-container>
+
+        <p class="export-hint" *ngIf="exportFormat === 'periskope'">
+          CSV column: chat_id (e.g. 919876543210&#64;c.us)
+        </p>
+
+        <div class="export-status" *ngIf="exportStatus">{{ exportStatus }}</div>
+
+        <button type="button" class="btn-primary" [disabled]="exportLoading" (click)="downloadClientList()">
+          {{ exportLoading ? 'Preparing…' : 'Download CSV' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
