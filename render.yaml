@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: greensigma-dashboard-frontend
+    runtime: static
+    buildCommand: npm run build
+    staticPublishPath: dist/sigma-dashboard
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
