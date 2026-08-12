@@ -123,6 +123,8 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
   winner: PortfolioPnl | null = null;
   loser: PortfolioPnl | null = null;
   histogramData: { bin: string; count: number }[] = [];
+  activePortfolioCount = 0;
+  activePortfolioPct = 0;
 
   private destroy$ = new Subject<void>();
 
@@ -246,6 +248,7 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     this.computeCounts();
     this.computeWinnerLoser();
     this.computeHistogram();
+    this.computeActivePortfolios();
     this.currentPage = 1;
     this.updatePagination();
   }
@@ -324,6 +327,16 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
       count: this.filteredPortfolios.filter((p) => p.pnlPercent >= bin.min && p.pnlPercent < bin.max)
         .length,
     }));
+  }
+
+  // rebalanceCount is a lifetime count (not scoped to the Created At / Updated At filters above)
+  // by design — a portfolio created "this month" wouldn't have had time to rebalance within that
+  // same narrow window, so "active" always looks at whether it has ever rebalanced at all.
+  private computeActivePortfolios() {
+    this.activePortfolioCount = this.filteredPortfolios.filter((p) => (p.rebalanceCount || 0) > 0).length;
+    this.activePortfolioPct = this.filteredPortfolios.length > 0
+      ? parseFloat((this.activePortfolioCount / this.filteredPortfolios.length * 100).toFixed(1))
+      : 0;
   }
 
   private filterByDateRange(

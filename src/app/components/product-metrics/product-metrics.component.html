@@ -204,6 +204,63 @@
     </div>
   </section>
 
+  <!-- Segment 3b: Engagement Distribution -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsEngagementDistribution)">
+    <h2 class="section-title">
+      Engagement Distribution
+      <span class="section-note">ℹ️ Of everyone active in the selected period, how many distinct days did each person show up? A wide base of 1-day users vs. a hardcore of 22+ day regulars tells very different stories behind the same stickiness ratio.</span>
+    </h2>
+
+    <div class="mini-controls">
+      <span class="filter-label">User Type:</span>
+      <div class="button-group">
+        <button [class.active]="distributionUserType === 'all'" (click)="onDistributionUserTypeChange('all')">All</button>
+        <button [class.active]="distributionUserType === 'Tribe'" (click)="onDistributionUserTypeChange('Tribe')">Tribe</button>
+        <button [class.active]="distributionUserType === 'Free'" (click)="onDistributionUserTypeChange('Free')">Free</button>
+        <button [class.active]="distributionUserType === 'Webinar'" (click)="onDistributionUserTypeChange('Webinar')">Webinar</button>
+      </div>
+    </div>
+
+    <div class="mini-controls">
+      <span class="filter-label">Period:</span>
+      <div class="button-group">
+        <button
+          *ngFor="let p of distributionPeriodOptions"
+          [class.active]="distributionPeriod === p.value"
+          (click)="onDistributionPeriodChange(p.value)">{{ p.label }}</button>
+      </div>
+      <ng-container *ngIf="distributionPeriod === 'custom'">
+        <input type="date" [(ngModel)]="distributionStartDate" (change)="onDistributionCustomRangeChange()">
+        <span class="range-sep">to</span>
+        <input type="date" [(ngModel)]="distributionEndDate" (change)="onDistributionCustomRangeChange()">
+      </ng-container>
+    </div>
+
+    <div *ngIf="loadingDistribution" class="loading-inline">Loading...</div>
+
+    <ng-container *ngIf="!loadingDistribution">
+      <p class="section-subtitle">
+        {{ distributionMau }} distinct active users between {{ distributionRangeStart }} and {{ distributionRangeEnd }}
+      </p>
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th>Active Days in Period</th>
+            <th>Users</th>
+            <th>% of MAU</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let bucket of distributionBuckets">
+            <td>{{ bucket.label }}</td>
+            <td>{{ bucket.users }}</td>
+            <td class="rate-cell">{{ bucket.pct }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </section>
+
   <!-- Segment 4: Active User Breakdown -->
   <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsActiveUserBreakdown)">
     <h2 class="section-title">

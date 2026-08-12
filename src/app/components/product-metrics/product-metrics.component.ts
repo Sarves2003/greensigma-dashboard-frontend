@@ -13,6 +13,7 @@ import { EchartBarComponent } from '../shared/echart-bar/echart-bar.component';
 type DayWindow = 7 | 15 | 30 | 60 | 90;
 type FlowUserType = 'all' | 'Tribe' | 'Free' | 'Webinar';
 type MonthPeriod = 'thisMonth' | 'lastMonth' | 'last3Months';
+type DistributionPeriod = 'thisMonth' | 'lastMonth' | 'last3Months' | 'custom';
 type SumAvgMode = 'sum' | 'avg';
 type Granularity = 'daily' | 'monthly' | 'quarterly' | 'daywise';
 
@@ -76,6 +77,23 @@ export class ProductMetricsComponent implements OnInit, OnDestroy {
   ratioValue = 0;
   loadingRatio = true;
 
+  // ============ Segment 3b: engagement distribution (days-active-per-user histogram) ============
+  distributionUserType: FlowUserType = 'all';
+  distributionPeriodOptions: { value: DistributionPeriod; label: string }[] = [
+    { value: 'thisMonth', label: 'This Month' },
+    { value: 'lastMonth', label: 'Last Month' },
+    { value: 'last3Months', label: 'Last 3 Months' },
+    { value: 'custom', label: 'Custom' },
+  ];
+  distributionPeriod: DistributionPeriod = 'thisMonth';
+  distributionStartDate = '';
+  distributionEndDate = '';
+  distributionRangeStart = '';
+  distributionRangeEnd = '';
+  distributionMau = 0;
+  distributionBuckets: { label: string; users: number; pct: number }[] = [];
+  loadingDistribution = true;
+
   // ============ Segment 4: active user breakdown bar chart ============
   granularityOptions: { value: Granularity; label: string }[] = [
     { value: 'daily', label: 'Daily' },
@@ -103,6 +121,7 @@ export class ProductMetricsComponent implements OnInit, OnDestroy {
     this.loadDau();
     this.loadMau();
     this.loadRatio();
+    this.loadDistribution();
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -347,6 +366,54 @@ export class ProductMetricsComponent implements OnInit, OnDestroy {
 
   periodLabel(period: MonthPeriod): string {
     return this.monthPeriodOptions.find((p) => p.value === period)?.label || '';
+  }
+
+  // ============ Segment 3b ============
+  loadDistribution() {
+    if (this.distributionPeriod === 'custom' && (!this.distributionStartDate || !this.distributionEndDate)) return;
+
+    this.loadingDistribution = true;
+    const params: any = { userType: this.distributionUserType, period: this.distributionPeriod };
+    if (this.distributionPeriod === 'custom') {
+      params.startDate = this.distributionStartDate;
+      params.endDate = this.distributionEndDate;
+    }
+
+    this.apiService
+      .getEngagementDistributionPlot(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.distributionMau = response.data.mau || 0;
+            this.distributionBuckets = response.data.buckets || [];
+            this.distributionRangeStart = response.data.rangeStart || '';
+            this.distributionRangeEnd = response.data.rangeEnd || '';
+          }
+          this.loadingDistribution = false;
+        },
+        error: (error) => {
+          console.error(error);
+          this.loadingDistribution = false;
+        },
+      });
+  }
+
+  onDistributionUserTypeChange(type: FlowUserType) {
+    this.distributionUserType = type;
+    this.loadDistribution();
+  }
+
+  onDistributionPeriodChange(period: DistributionPeriod) {
+    this.distributionPeriod = period;
+    if (period !== 'custom') this.loadDistribution();
+  }
+
+  onDistributionCustomRangeChange() {
+    if (this.distributionStartDate && this.distributionEndDate) {
+      this.distributionPeriod = 'custom';
+      this.loadDistribution();
+    }
   }
 
   // ============ Segment 4 ============

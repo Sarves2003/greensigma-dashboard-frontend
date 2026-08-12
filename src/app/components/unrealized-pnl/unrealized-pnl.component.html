@@ -8,50 +8,6 @@
   <div *ngIf="error" class="error">{{ error }}</div>
 
   <ng-container *ngIf="!loading && !error">
-    <!-- Summary Row 1: hero totals -->
-    <div class="metrics-grid hero-grid">
-      <div class="summary-card hero-card">
-        <span class="summary-icon">💰</span>
-        <span class="summary-label">Total Invested</span>
-        <span class="summary-value">₹{{ totals.invested | number: '1.0-0' }}</span>
-      </div>
-      <div class="summary-card hero-card">
-        <span class="summary-icon">📈</span>
-        <span class="summary-label">Total Current Value</span>
-        <span class="summary-value">₹{{ totals.current | number: '1.0-0' }}</span>
-      </div>
-      <div class="summary-card hero-card" [class.positive]="totals.pnl >= 0" [class.negative]="totals.pnl < 0">
-        <span class="summary-icon">⚖️</span>
-        <span class="summary-label">Total Unrealized P&amp;L</span>
-        <span class="summary-value">₹{{ totals.pnl | number: '1.0-0' }}</span>
-      </div>
-    </div>
-
-    <!-- Summary Row 2: portfolio-level standouts -->
-    <div class="metrics-grid stats-grid">
-      <div class="summary-card split-card">
-        <span class="summary-icon">🥊</span>
-        <span class="summary-label">Winning / Losing Portfolios</span>
-        <span class="summary-value split-value">
-          <span class="positive">{{ positiveCount }}</span>
-          <span class="split-divider">/</span>
-          <span class="negative">{{ negativeCount }}</span>
-        </span>
-      </div>
-      <div class="summary-card positive">
-        <span class="summary-icon">🏆</span>
-        <span class="summary-label">Biggest Winner (ROI%)</span>
-        <span class="summary-value">{{ winner ? (winner.pnlPercent | number: '1.2-2') + '%' : '-' }}</span>
-        <span class="summary-sub" *ngIf="winner">{{ winner.portfolioName }} · {{ winner.userId }}</span>
-      </div>
-      <div class="summary-card negative">
-        <span class="summary-icon">📉</span>
-        <span class="summary-label">Worst Loss (ROI%)</span>
-        <span class="summary-value">{{ loser ? (loser.pnlPercent | number: '1.2-2') + '%' : '-' }}</span>
-        <span class="summary-sub" *ngIf="loser">{{ loser.portfolioName }} · {{ loser.userId }}</span>
-      </div>
-    </div>
-
     <!-- Filters -->
     <section class="segment-card filters-card">
       <h2 class="section-title">Filters</h2>
@@ -139,6 +95,56 @@
         </div>
       </div>
     </section>
+
+    <!-- Summary Row 1: hero totals -->
+    <div class="metrics-grid hero-grid">
+      <div class="summary-card hero-card">
+        <span class="summary-icon">💰</span>
+        <span class="summary-label">Total Invested</span>
+        <span class="summary-value">₹{{ totals.invested | number: '1.0-0' }}</span>
+      </div>
+      <div class="summary-card hero-card">
+        <span class="summary-icon">📈</span>
+        <span class="summary-label">Total Current Value</span>
+        <span class="summary-value">₹{{ totals.current | number: '1.0-0' }}</span>
+      </div>
+      <div class="summary-card hero-card" [class.positive]="totals.pnl >= 0" [class.negative]="totals.pnl < 0">
+        <span class="summary-icon">⚖️</span>
+        <span class="summary-label">Total Unrealized P&amp;L</span>
+        <span class="summary-value">₹{{ totals.pnl | number: '1.0-0' }}</span>
+      </div>
+    </div>
+
+    <!-- Summary Row 2: portfolio-level standouts -->
+    <div class="metrics-grid stats-grid">
+      <div class="summary-card split-card">
+        <span class="summary-icon">🥊</span>
+        <span class="summary-label">Winning / Losing Portfolios</span>
+        <span class="summary-value split-value">
+          <span class="positive">{{ positiveCount }}</span>
+          <span class="split-divider">/</span>
+          <span class="negative">{{ negativeCount }}</span>
+        </span>
+      </div>
+      <div class="summary-card positive">
+        <span class="summary-icon">🏆</span>
+        <span class="summary-label">Biggest Winner (ROI%)</span>
+        <span class="summary-value">{{ winner ? (winner.pnlPercent | number: '1.2-2') + '%' : '-' }}</span>
+        <span class="summary-sub" *ngIf="winner">{{ winner.portfolioName }} · {{ winner.userId }}</span>
+      </div>
+      <div class="summary-card negative">
+        <span class="summary-icon">📉</span>
+        <span class="summary-label">Worst Loss (ROI%)</span>
+        <span class="summary-value">{{ loser ? (loser.pnlPercent | number: '1.2-2') + '%' : '-' }}</span>
+        <span class="summary-sub" *ngIf="loser">{{ loser.portfolioName }} · {{ loser.userId }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-icon">🔁</span>
+        <span class="summary-label">Active Portfolio Managers</span>
+        <span class="summary-value">{{ activePortfolioPct }}% <span class="summary-fraction">({{ activePortfolioCount }} / {{ filteredPortfolios.length }})</span></span>
+        <span class="summary-sub">Rebalanced at least once, ever — ignores date filters</span>
+      </div>
+    </div>
 
     <!-- ROI% Distribution -->
     <section class="segment-card chart-container">

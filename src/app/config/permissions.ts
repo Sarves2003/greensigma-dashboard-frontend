@@ -7,6 +7,7 @@ export const PERMISSIONS = {
   productMetricsActivation: 'card:product-metrics:activation-rate',
   productMetricsActiveUserCards: 'card:product-metrics:active-user-cards',
   productMetricsActiveUserBreakdown: 'card:product-metrics:active-user-breakdown',
+  productMetricsEngagementDistribution: 'card:product-metrics:engagement-distribution',
 
   gsHealth: 'tab:gs-health',
   gsHealthKeyMetrics: 'card:gs-health:key-metrics',

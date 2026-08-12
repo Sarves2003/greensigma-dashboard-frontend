@@ -64,6 +64,10 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/monthly-active-paid`, { params: this.buildParams(params) });
   }
 
+  getEngagementDistributionPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/engagement-distribution`, { params: this.buildParams(params) });
+  }
+
   // Overview (legacy)
   getKPIs(params: any): Observable<APIResponse<KPIResponse[]>> {
     let httpParams = new HttpParams();
