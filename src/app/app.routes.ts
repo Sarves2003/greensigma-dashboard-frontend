@@ -16,6 +16,7 @@ import { ProductMetricsComponent } from './components/product-metrics/product-me
 import { FunnelAnalysisComponent } from './components/funnel-analysis/funnel-analysis.component';
 import { UsageAnalysisComponent } from './components/usage-analysis/usage-analysis.component';
 import { AdminManagementComponent } from './components/admin-management/admin-management.component';
+import { NoAccessComponent } from './components/no-access/no-access.component';
 import { authGuard, ownerGuard, permissionGuard } from './guards/auth.guard';
 import { PERMISSIONS } from './config/permissions';
 
@@ -38,5 +39,6 @@ export const routes: Routes = [
   { path: 'funnel-analysis', component: FunnelAnalysisComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.funnelAnalysis)] },
   { path: 'usage-analysis', component: UsageAnalysisComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.usageAnalysis)] },
   { path: 'admin', component: AdminManagementComponent, canActivate: [authGuard, ownerGuard] },
+  { path: 'no-access', component: NoAccessComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: '/product-metrics' },
 ];

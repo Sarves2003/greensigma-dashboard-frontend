@@ -98,4 +98,27 @@ export class AuthService {
   hasAnyPermission(keys: string[]): boolean {
     return keys.some((key) => this.hasPermission(key));
   }
+
+  // Same priority order as the sidebar nav in app.component.html. Used anywhere we need to land a
+  // user somewhere valid (post-login, guard rejection) instead of a hardcoded route — hardcoding
+  // one route as "the" destination broke for any role missing that specific permission (e.g. Sales
+  // Team without Product Metrics access): guard blocks them, redirects back to the same blocked
+  // route, forever. Falls back to /no-access if the user has literally zero tab permissions, which
+  // is intentionally unguarded so it can never itself trigger another redirect loop.
+  private readonly ROUTE_PRIORITY: { permission: string; path: string }[] = [
+    { permission: 'tab:product-metrics', path: '/product-metrics' },
+    { permission: 'tab:portfolio', path: '/portfolio' },
+    { permission: 'tab:unrealized-pnl', path: '/unrealized-pnl' },
+    { permission: 'tab:retention', path: '/retention' },
+    { permission: 'tab:gs-health', path: '/gs-health' },
+    { permission: 'tab:funnel-analysis', path: '/funnel-analysis' },
+    { permission: 'tab:usage-analysis', path: '/usage-analysis' },
+  ];
+
+  firstAccessibleRoute(): string {
+    for (const r of this.ROUTE_PRIORITY) {
+      if (this.hasPermission(r.permission)) return r.path;
+    }
+    return '/no-access';
+  }
 }

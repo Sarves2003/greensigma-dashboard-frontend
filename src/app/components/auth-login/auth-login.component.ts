@@ -19,7 +19,7 @@ export class AuthLoginComponent {
 
   constructor(private authService: AuthService, private router: Router) {
     if (this.authService.isLoggedIn()) {
-      this.router.navigate(['/product-metrics']);
+      this.router.navigate([this.authService.firstAccessibleRoute()]);
     }
   }
 
@@ -35,7 +35,7 @@ export class AuthLoginComponent {
       next: (response) => {
         this.loading = false;
         if (response.success) {
-          this.router.navigate(['/product-metrics']);
+          this.router.navigate([this.authService.firstAccessibleRoute()]);
         } else {
           this.error = response.error || 'Login failed';
         }

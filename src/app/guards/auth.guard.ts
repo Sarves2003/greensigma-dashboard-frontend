@@ -14,7 +14,7 @@ export const ownerGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
   if (authService.isLoggedIn() && authService.isOwner()) return true;
-  router.navigate(['/product-metrics']);
+  router.navigate([authService.isLoggedIn() ? authService.firstAccessibleRoute() : '/login']);
   return false;
 };
 
@@ -23,7 +23,7 @@ export function permissionGuard(key: string): CanActivateFn {
     const authService = inject(AuthService);
     const router = inject(Router);
     if (authService.isLoggedIn() && authService.hasPermission(key)) return true;
-    router.navigate(['/product-metrics']);
+    router.navigate([authService.isLoggedIn() ? authService.firstAccessibleRoute() : '/login']);
     return false;
   };
 }
