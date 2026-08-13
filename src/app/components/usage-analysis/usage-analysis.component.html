@@ -1,0 +1,459 @@
+<div class="usage-analysis-container">
+  <div class="header">
+    <h1>Usage Analysis</h1>
+    <p class="subtitle">Signups, feature usage, and sales call tracking — in one place</p>
+  </div>
+
+  <!-- Modern sub-tab switcher -->
+  <div class="subtab-switcher">
+    <button
+      *ngIf="authService.hasPermission(permissions.usageAnalysisMain)"
+      type="button"
+      class="subtab-btn"
+      [class.active]="activeSubTab === 'main'"
+      (click)="setSubTab('main')">
+      <span class="subtab-icon">🧾</span> Main
+    </button>
+    <button
+      *ngIf="authService.hasPermission(permissions.usageAnalysisDemoCall)"
+      type="button"
+      class="subtab-btn"
+      [class.active]="activeSubTab === 'demoCall'"
+      (click)="setSubTab('demoCall')">
+      <span class="subtab-icon">📞</span> Demo Call
+    </button>
+    <button
+      *ngIf="authService.hasPermission(permissions.usageAnalysisAssessment)"
+      type="button"
+      class="subtab-btn"
+      [class.active]="activeSubTab === 'assessment'"
+      (click)="setSubTab('assessment')">
+      <span class="subtab-icon">📋</span> Assessment
+    </button>
+  </div>
+
+  <!-- ============ MAIN TAB ============ -->
+  <ng-container *ngIf="activeSubTab === 'main' && authService.hasPermission(permissions.usageAnalysisMain)">
+    <section class="segment-card filters-card">
+      <h2 class="section-title">
+        Filters
+        <span class="section-note">ℹ️ Date/Type/Referral Code/Search narrow down which users appear. Their usage &amp; booking counts are always lifetime totals, regardless of signup date filter.</span>
+      </h2>
+
+      <div class="mini-controls">
+        <span class="filter-label">Signed Up:</span>
+        <div class="button-group">
+          <button [class.active]="mainDatePreset === 'today'" (click)="onMainDatePreset('today')">Today</button>
+          <button [class.active]="mainDatePreset === 'yesterday'" (click)="onMainDatePreset('yesterday')">Yesterday</button>
+          <button [class.active]="mainDatePreset === 'last7days'" (click)="onMainDatePreset('last7days')">Last 7 Days</button>
+          <button [class.active]="mainDatePreset === 'last15days'" (click)="onMainDatePreset('last15days')">Last 15 Days</button>
+          <button [class.active]="mainDatePreset === 'thisMonth'" (click)="onMainDatePreset('thisMonth')">This Month</button>
+          <button [class.active]="mainDatePreset === 'lastMonth'" (click)="onMainDatePreset('lastMonth')">Last Month</button>
+          <button [class.active]="mainDatePreset === 'custom'" (click)="mainDatePreset = 'custom'">Custom</button>
+        </div>
+        <input type="date" [(ngModel)]="mainStartDate" (change)="onMainCustomRangeChange()">
+        <span class="range-sep">to</span>
+        <input type="date" [(ngModel)]="mainEndDate" (change)="onMainCustomRangeChange()">
+      </div>
+
+      <div class="mini-controls">
+        <span class="filter-label">Type:</span>
+        <div class="button-group">
+          <button [class.active]="mainType === 'all'" (click)="onMainTypeChange('all')">All</button>
+          <button [class.active]="mainType === 'Free'" (click)="onMainTypeChange('Free')">Free</button>
+          <button [class.active]="mainType === 'Tribe'" (click)="onMainTypeChange('Tribe')">Tribe</button>
+          <button [class.active]="mainType === 'Webinar'" (click)="onMainTypeChange('Webinar')">Webinar</button>
+        </div>
+      </div>
+
+      <div class="mini-controls">
+        <span class="filter-label">Referral Code:</span>
+        <input
+          type="text"
+          class="text-filter"
+          placeholder="e.g. SIGMA2026 (not case sensitive)"
+          [(ngModel)]="mainReferalCode"
+          (ngModelChange)="onMainTextFilterChange()">
+
+        <span class="filter-label">Search:</span>
+        <input
+          type="text"
+          class="text-filter search-filter"
+          placeholder="Name, mobile, or email..."
+          [(ngModel)]="mainSearch"
+          (ngModelChange)="onMainTextFilterChange()">
+      </div>
+    </section>
+
+    <div *ngIf="loadingMain" class="loading-inline">Loading usage data...</div>
+    <div *ngIf="errorMain" class="error">{{ errorMain }}</div>
+
+    <section class="segment-card table-section" *ngIf="!loadingMain && !errorMain">
+      <div class="table-header">
+        <h2>Signed-Up Users ({{ mainRows.length }})</h2>
+        <label class="page-size-label">
+          Rows:
+          <select [(ngModel)]="mainPageSize" (change)="onMainPageSizeChange()">
+            <option *ngFor="let size of mainPageSizeOptions" [value]="size">{{ size }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="table-scroll">
+        <table class="data-table sortable">
+          <thead>
+            <tr>
+              <th (click)="onMainSort('name')" [class.active]="mainSortBy === 'name'">Name <span *ngIf="mainSortBy === 'name'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onMainSort('mobile')" [class.active]="mainSortBy === 'mobile'">Mobile <span *ngIf="mainSortBy === 'mobile'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onMainSort('email')" [class.active]="mainSortBy === 'email'">Email <span *ngIf="mainSortBy === 'email'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-center" (click)="onMainSort('type')" [class.active]="mainSortBy === 'type'">Type <span *ngIf="mainSortBy === 'type'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onMainSort('signedUpAt')" [class.active]="mainSortBy === 'signedUpAt'">Signed Up (IST) <span *ngIf="mainSortBy === 'signedUpAt'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('daysSinceSignup')" [class.active]="mainSortBy === 'daysSinceSignup'">Days Since Signup <span *ngIf="mainSortBy === 'daysSinceSignup'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onMainSort('lastLoginAt')" [class.active]="mainSortBy === 'lastLoginAt'">Last Login <span *ngIf="mainSortBy === 'lastLoginAt'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onMainSort('referalCode')" [class.active]="mainSortBy === 'referalCode'">Referral Code <span *ngIf="mainSortBy === 'referalCode'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('demoCallCount')" [class.active]="mainSortBy === 'demoCallCount'">Demo Calls <span *ngIf="mainSortBy === 'demoCallCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('assessmentCount')" [class.active]="mainSortBy === 'assessmentCount'">Assessments <span *ngIf="mainSortBy === 'assessmentCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('btCount')" [class.active]="mainSortBy === 'btCount'">BT Count <span *ngIf="mainSortBy === 'btCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('usageScore')" [class.active]="mainSortBy === 'usageScore'">Usage Score <span *ngIf="mainSortBy === 'usageScore'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of pagedMainRows">
+              <td>{{ row.name }}</td>
+              <td>{{ row.mobile }}</td>
+              <td>{{ row.email }}</td>
+              <td class="col-center">
+                <span class="badge" [class.badge-blue]="row.type === 'Tribe'" [class.badge-green]="row.type === 'Free'" [class.badge-grey]="row.type === 'Webinar'">{{ row.type }}</span>
+              </td>
+              <td>{{ toIST(row.signedUpAt) }}</td>
+              <td class="col-num">{{ daysSinceSignup(row.signedUpAt) }}</td>
+              <td>{{ relativeTime(row.lastLoginAt) }}</td>
+              <td>{{ row.referalCode || '-' }}</td>
+              <td class="col-num">{{ row.demoCallCount }}</td>
+              <td class="col-num">{{ row.assessmentCount }}</td>
+              <td class="col-num">{{ row.btCount }}</td>
+              <td class="col-num usage-score-cell">{{ row.usageScore }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="mainRows.length === 0" class="no-data">No users match these filters.</div>
+
+      <div class="pagination" *ngIf="mainRows.length > 0">
+        <span class="page-info">Showing {{ (mainCurrentPage - 1) * mainPageSize + 1 }}–{{ Math.min(mainCurrentPage * mainPageSize, mainRows.length) }} of {{ mainRows.length }}</span>
+        <div class="pagination-controls">
+          <button [disabled]="mainCurrentPage === 1" (click)="mainPrevPage()">← Previous</button>
+          <span class="page-number">Page {{ mainCurrentPage }} of {{ mainTotalPages }}</span>
+          <button [disabled]="mainCurrentPage === mainTotalPages" (click)="mainNextPage()">Next →</button>
+        </div>
+      </div>
+    </section>
+  </ng-container>
+
+  <!-- ============ DEMO CALL TAB ============ -->
+  <ng-container *ngIf="activeSubTab === 'demoCall' && authService.hasPermission(permissions.usageAnalysisDemoCall)">
+    <section class="segment-card">
+      <h2 class="section-title">Demo Call Bookings</h2>
+
+      <div class="mini-controls">
+        <span class="filter-label">Period:</span>
+        <div class="button-group">
+          <button [class.active]="demoPeriod === 'today'" (click)="onDemoPeriodChange('today')">Today</button>
+          <button [class.active]="demoPeriod === 'yesterday'" (click)="onDemoPeriodChange('yesterday')">Yesterday</button>
+          <button [class.active]="demoPeriod === 'custom'" (click)="demoPeriod = 'custom'">Custom</button>
+        </div>
+        <ng-container *ngIf="demoPeriod === 'custom'">
+          <input type="date" [(ngModel)]="demoCustomStart" (change)="onDemoCustomChange()">
+          <span class="range-sep">to</span>
+          <input type="date" [(ngModel)]="demoCustomEnd" (change)="onDemoCustomChange()">
+        </ng-container>
+      </div>
+
+      <div class="mini-controls">
+        <span class="filter-label">Type:</span>
+        <div class="button-group">
+          <button [class.active]="demoType === 'all'" (click)="onDemoTypeChange('all')">All</button>
+          <button [class.active]="demoType === 'Free'" (click)="onDemoTypeChange('Free')">Free</button>
+          <button [class.active]="demoType === 'Tribe'" (click)="onDemoTypeChange('Tribe')">Tribe</button>
+          <button [class.active]="demoType === 'Webinar'" (click)="onDemoTypeChange('Webinar')">Webinar</button>
+          <button [class.active]="demoType === 'unregistered'" (click)="onDemoTypeChange('unregistered')">Unregistered</button>
+        </div>
+      </div>
+
+      <div class="mini-controls">
+        <span class="filter-label">Referral Code:</span>
+        <input
+          type="text"
+          class="text-filter"
+          placeholder="e.g. SIGMA2026 (not case sensitive)"
+          [(ngModel)]="demoReferalCode"
+          (ngModelChange)="onDemoReferalCodeChange()">
+
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="demoDedupe" (change)="onDemoDedupeToggle()">
+          Exclude duplicates (show latest booking per person)
+        </label>
+      </div>
+
+      <div class="booking-cards-row">
+        <div class="booking-count-card">
+          <span class="booking-count-icon">📞</span>
+          <span class="booking-count-value">{{ demoFilteredRaw.length }}</span>
+          <span class="booking-count-label">calls booked in this period</span>
+        </div>
+        <div
+          class="booking-count-card repeat-card"
+          [class.has-repeats]="demoRepeatBookers.length > 0"
+          (click)="demoRepeatBookers.length > 0 && openDemoRepeatModal()">
+          <span class="booking-count-icon">🔁</span>
+          <span class="booking-count-value">{{ demoRepeatBookers.length }}</span>
+          <span class="booking-count-label">people booked more than once <ng-container *ngIf="demoRepeatBookers.length > 0">— click to view</ng-container></span>
+        </div>
+      </div>
+
+      <div class="slot-cards-row">
+        <div class="slot-card" *ngFor="let s of demoSlotCounts" [class.slot-card-max]="s.isMax">
+          <span class="slot-label">{{ s.slot }}</span>
+          <span class="slot-value">{{ s.count }}</span>
+        </div>
+      </div>
+    </section>
+
+    <div *ngIf="loadingDemo" class="loading-inline">Loading demo call bookings...</div>
+    <div *ngIf="errorDemo" class="error">{{ errorDemo }}</div>
+
+    <section class="segment-card table-section" *ngIf="!loadingDemo && !errorDemo">
+      <h2>Bookings ({{ filteredDemoRows.length }})</h2>
+      <div class="table-scroll">
+        <table class="data-table sortable">
+          <thead>
+            <tr>
+              <th (click)="onDemoSort('name')" [class.active]="demoSortBy === 'name'">Name <span *ngIf="demoSortBy === 'name'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onDemoSort('mobile')" [class.active]="demoSortBy === 'mobile'">Mobile <span *ngIf="demoSortBy === 'mobile'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onDemoSort('preferredDate')" [class.active]="demoSortBy === 'preferredDate'">Preferred Date <span *ngIf="demoSortBy === 'preferredDate'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th>Preferred Time</th>
+              <th (click)="onDemoSort('createdAt')" [class.active]="demoSortBy === 'createdAt'">Booked At (IST) <span *ngIf="demoSortBy === 'createdAt'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-center" (click)="onDemoSort('matchedType')" [class.active]="demoSortBy === 'matchedType'">Type <span *ngIf="demoSortBy === 'matchedType'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th>Referral Code</th>
+              <th class="col-center" (click)="onDemoSort('registered')" [class.active]="demoSortBy === 'registered'">Registered <span *ngIf="demoSortBy === 'registered'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of pagedDemoRows">
+              <td>{{ row.name }}</td>
+              <td>{{ row.mobile }}</td>
+              <td>{{ toIST(row.preferredDate) }}</td>
+              <td>{{ row.preferredTime || '-' }}</td>
+              <td>{{ toIST(row.createdAt) }}</td>
+              <td class="col-center">{{ row.matchedType || '-' }}</td>
+              <td>{{ row.matchedReferalCode || '-' }}</td>
+              <td class="col-center">
+                <span class="badge" [class.badge-green]="row.registered" [class.badge-grey]="!row.registered">{{ row.registered ? 'Yes' : 'No' }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="filteredDemoRows.length === 0" class="no-data">No bookings match these filters.</div>
+
+      <div class="pagination" *ngIf="filteredDemoRows.length > 0">
+        <span class="page-info">Showing {{ (demoCurrentPage - 1) * demoPageSize + 1 }}–{{ Math.min(demoCurrentPage * demoPageSize, filteredDemoRows.length) }} of {{ filteredDemoRows.length }}</span>
+        <div class="pagination-controls">
+          <button [disabled]="demoCurrentPage === 1" (click)="demoPrevPage()">← Previous</button>
+          <span class="page-number">Page {{ demoCurrentPage }} of {{ demoTotalPages }}</span>
+          <button [disabled]="demoCurrentPage === demoTotalPages" (click)="demoNextPage()">Next →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Repeat bookers popup -->
+    <div class="modal-overlay" *ngIf="showDemoRepeatModal" (click)="closeDemoRepeatModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Repeat Demo Call Bookers ({{ demoRepeatBookers.length }})</h2>
+          <button class="btn-close" (click)="closeDemoRepeatModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th class="col-num">Times Booked</th>
+                <th>Booking Dates (IST)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let booker of demoRepeatBookers">
+                <td>{{ booker.name }}</td>
+                <td>{{ booker.phone }}</td>
+                <td class="col-num">{{ booker.count }}</td>
+                <td class="booking-dates-cell">
+                  <span *ngFor="let b of booker.bookings" class="booking-date-chip">{{ toIST(b.createdAt) }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ============ ASSESSMENT TAB ============ -->
+  <ng-container *ngIf="activeSubTab === 'assessment' && authService.hasPermission(permissions.usageAnalysisAssessment)">
+    <section class="segment-card">
+      <h2 class="section-title">Assessment Call Bookings</h2>
+
+      <div class="mini-controls">
+        <span class="filter-label">Period:</span>
+        <div class="button-group">
+          <button [class.active]="assessPeriod === 'today'" (click)="onAssessPeriodChange('today')">Today</button>
+          <button [class.active]="assessPeriod === 'yesterday'" (click)="onAssessPeriodChange('yesterday')">Yesterday</button>
+          <button [class.active]="assessPeriod === 'custom'" (click)="assessPeriod = 'custom'">Custom</button>
+        </div>
+        <ng-container *ngIf="assessPeriod === 'custom'">
+          <input type="date" [(ngModel)]="assessCustomStart" (change)="onAssessCustomChange()">
+          <span class="range-sep">to</span>
+          <input type="date" [(ngModel)]="assessCustomEnd" (change)="onAssessCustomChange()">
+        </ng-container>
+      </div>
+
+      <div class="mini-controls">
+        <span class="filter-label">Type:</span>
+        <div class="button-group">
+          <button [class.active]="assessType === 'all'" (click)="onAssessTypeChange('all')">All</button>
+          <button [class.active]="assessType === 'Free'" (click)="onAssessTypeChange('Free')">Free</button>
+          <button [class.active]="assessType === 'Tribe'" (click)="onAssessTypeChange('Tribe')">Tribe</button>
+          <button [class.active]="assessType === 'Webinar'" (click)="onAssessTypeChange('Webinar')">Webinar</button>
+          <button [class.active]="assessType === 'unregistered'" (click)="onAssessTypeChange('unregistered')">Unregistered</button>
+        </div>
+      </div>
+
+      <div class="mini-controls">
+        <span class="filter-label">Referral Code:</span>
+        <input
+          type="text"
+          class="text-filter"
+          placeholder="e.g. SIGMA2026 (not case sensitive)"
+          [(ngModel)]="assessReferalCode"
+          (ngModelChange)="onAssessReferalCodeChange()">
+
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="assessDedupe" (change)="onAssessDedupeToggle()">
+          Exclude duplicates (show latest booking per person)
+        </label>
+      </div>
+
+      <div class="booking-cards-row">
+        <div class="booking-count-card">
+          <span class="booking-count-icon">📋</span>
+          <span class="booking-count-value">{{ assessFilteredRaw.length }}</span>
+          <span class="booking-count-label">assessments booked in this period</span>
+        </div>
+        <div
+          class="booking-count-card repeat-card"
+          [class.has-repeats]="assessRepeatBookers.length > 0"
+          (click)="assessRepeatBookers.length > 0 && openAssessRepeatModal()">
+          <span class="booking-count-icon">🔁</span>
+          <span class="booking-count-value">{{ assessRepeatBookers.length }}</span>
+          <span class="booking-count-label">people booked more than once <ng-container *ngIf="assessRepeatBookers.length > 0">— click to view</ng-container></span>
+        </div>
+      </div>
+
+      <div class="slot-cards-row">
+        <div class="slot-card" *ngFor="let s of assessSlotCounts" [class.slot-card-max]="s.isMax">
+          <span class="slot-label">{{ s.slot }}</span>
+          <span class="slot-value">{{ s.count }}</span>
+        </div>
+      </div>
+    </section>
+
+    <div *ngIf="loadingAssess" class="loading-inline">Loading assessment bookings...</div>
+    <div *ngIf="errorAssess" class="error">{{ errorAssess }}</div>
+
+    <section class="segment-card table-section" *ngIf="!loadingAssess && !errorAssess">
+      <h2>Bookings ({{ filteredAssessRows.length }})</h2>
+      <div class="table-scroll">
+        <table class="data-table sortable">
+          <thead>
+            <tr>
+              <th (click)="onAssessSort('name')" [class.active]="assessSortBy === 'name'">Name <span *ngIf="assessSortBy === 'name'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onAssessSort('mobile')" [class.active]="assessSortBy === 'mobile'">Mobile <span *ngIf="assessSortBy === 'mobile'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onAssessSort('email')" [class.active]="assessSortBy === 'email'">Email <span *ngIf="assessSortBy === 'email'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th (click)="onAssessSort('preferredDate')" [class.active]="assessSortBy === 'preferredDate'">Preferred Date <span *ngIf="assessSortBy === 'preferredDate'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th>Preferred Time</th>
+              <th (click)="onAssessSort('createdAt')" [class.active]="assessSortBy === 'createdAt'">Booked At (IST) <span *ngIf="assessSortBy === 'createdAt'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-center" (click)="onAssessSort('status')" [class.active]="assessSortBy === 'status'">Status <span *ngIf="assessSortBy === 'status'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-center" (click)="onAssessSort('matchedType')" [class.active]="assessSortBy === 'matchedType'">Type <span *ngIf="assessSortBy === 'matchedType'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th>Referral Code</th>
+              <th class="col-center" (click)="onAssessSort('registered')" [class.active]="assessSortBy === 'registered'">Registered <span *ngIf="assessSortBy === 'registered'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of pagedAssessRows">
+              <td>{{ row.name }}</td>
+              <td>{{ row.mobile }}</td>
+              <td>{{ row.email || '-' }}</td>
+              <td>{{ toIST(row.preferredDate) }}</td>
+              <td>{{ row.preferredTime || '-' }}</td>
+              <td>{{ toIST(row.createdAt) }}</td>
+              <td class="col-center">
+                <span class="badge" [class.badge-green]="row.status === 'completed'" [class.badge-grey]="row.status !== 'completed'">{{ row.status || '-' }}</span>
+              </td>
+              <td class="col-center">{{ row.matchedType || '-' }}</td>
+              <td>{{ row.matchedReferalCode || '-' }}</td>
+              <td class="col-center">
+                <span class="badge" [class.badge-green]="row.registered" [class.badge-grey]="!row.registered">{{ row.registered ? 'Yes' : 'No' }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="filteredAssessRows.length === 0" class="no-data">No bookings match these filters.</div>
+
+      <div class="pagination" *ngIf="filteredAssessRows.length > 0">
+        <span class="page-info">Showing {{ (assessCurrentPage - 1) * assessPageSize + 1 }}–{{ Math.min(assessCurrentPage * assessPageSize, filteredAssessRows.length) }} of {{ filteredAssessRows.length }}</span>
+        <div class="pagination-controls">
+          <button [disabled]="assessCurrentPage === 1" (click)="assessPrevPage()">← Previous</button>
+          <span class="page-number">Page {{ assessCurrentPage }} of {{ assessTotalPages }}</span>
+          <button [disabled]="assessCurrentPage === assessTotalPages" (click)="assessNextPage()">Next →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Repeat bookers popup -->
+    <div class="modal-overlay" *ngIf="showAssessRepeatModal" (click)="closeAssessRepeatModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Repeat Assessment Bookers ({{ assessRepeatBookers.length }})</h2>
+          <button class="btn-close" (click)="closeAssessRepeatModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Email</th>
+                <th class="col-num">Times Booked</th>
+                <th>Booking Dates (IST)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let booker of assessRepeatBookers">
+                <td>{{ booker.name }}</td>
+                <td>{{ booker.phone }}</td>
+                <td>{{ booker.email || '-' }}</td>
+                <td class="col-num">{{ booker.count }}</td>
+                <td class="booking-dates-cell">
+                  <span *ngFor="let b of booker.bookings" class="booking-date-chip">{{ toIST(b.createdAt) }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

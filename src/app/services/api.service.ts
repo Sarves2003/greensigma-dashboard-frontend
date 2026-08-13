@@ -68,6 +68,19 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/engagement-distribution`, { params: this.buildParams(params) });
   }
 
+  // Usage Analysis
+  getUsageAnalysisMain(params: any): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/usage-analysis/main`, { params: this.buildParams(params) });
+  }
+
+  getUsageAnalysisDemoCalls(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/usage-analysis/demo-calls`);
+  }
+
+  getUsageAnalysisAssessments(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/usage-analysis/assessments`);
+  }
+
   // Overview (legacy)
   getKPIs(params: any): Observable<APIResponse<KPIResponse[]>> {
     let httpParams = new HttpParams();

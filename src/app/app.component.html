@@ -64,6 +64,15 @@
           <span class="icon">🔻</span>
           <span class="label">Funnel Analysis</span>
         </a>
+        <a
+          *ngIf="authService.hasPermission(permissions.usageAnalysis)"
+          routerLink="/usage-analysis"
+          routerLinkActive="active"
+          class="nav-item"
+        >
+          <span class="icon">🧭</span>
+          <span class="label">Usage Analysis</span>
+        </a>
 
         <a *ngIf="authService.isOwner()" routerLink="/admin" routerLinkActive="active" class="nav-item admin-item">
           <span class="icon">🛡️</span>

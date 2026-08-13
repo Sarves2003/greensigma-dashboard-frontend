@@ -14,6 +14,7 @@ import { GsHealthComponent } from './components/gs-health/gs-health.component';
 import { UnrealizedPnlComponent } from './components/unrealized-pnl/unrealized-pnl.component';
 import { ProductMetricsComponent } from './components/product-metrics/product-metrics.component';
 import { FunnelAnalysisComponent } from './components/funnel-analysis/funnel-analysis.component';
+import { UsageAnalysisComponent } from './components/usage-analysis/usage-analysis.component';
 import { AdminManagementComponent } from './components/admin-management/admin-management.component';
 import { authGuard, ownerGuard, permissionGuard } from './guards/auth.guard';
 import { PERMISSIONS } from './config/permissions';
@@ -35,6 +36,7 @@ export const routes: Routes = [
   { path: 'unrealized-pnl', component: UnrealizedPnlComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.unrealizedPnl)] },
   { path: 'product-metrics', component: ProductMetricsComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.productMetrics)] },
   { path: 'funnel-analysis', component: FunnelAnalysisComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.funnelAnalysis)] },
+  { path: 'usage-analysis', component: UsageAnalysisComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.usageAnalysis)] },
   { path: 'admin', component: AdminManagementComponent, canActivate: [authGuard, ownerGuard] },
   { path: '**', redirectTo: '/product-metrics' },
 ];

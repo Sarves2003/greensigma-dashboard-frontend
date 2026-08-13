@@ -24,4 +24,9 @@ export const PERMISSIONS = {
 
   portfolio: 'tab:portfolio',
   retention: 'tab:retention',
+
+  usageAnalysis: 'tab:usage-analysis',
+  usageAnalysisMain: 'card:usage-analysis:main',
+  usageAnalysisDemoCall: 'card:usage-analysis:demo-call',
+  usageAnalysisAssessment: 'card:usage-analysis:assessment',
 } as const;
