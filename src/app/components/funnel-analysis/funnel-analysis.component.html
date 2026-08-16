@@ -108,9 +108,12 @@
       <span class="section-note">ℹ️ A conversion is credited to the most recent webinar batch on/before its paid date. Registrants = who signed up for that specific webinar occurrence.</span>
     </h2>
 
-    <div class="mini-controls" *ngIf="authService.hasPermission(permissions.funnelDateManager)">
-      <button type="button" class="btn-manage" (click)="toggleDateManager()">
+    <div class="mini-controls" *ngIf="authService.hasAnyPermission([permissions.funnelDateManager, permissions.funnelLocationUpload])">
+      <button type="button" class="btn-manage" *ngIf="authService.hasPermission(permissions.funnelDateManager)" (click)="toggleDateManager()">
         {{ showDateManager ? 'Hide' : 'Manage' }} Webinar Dates ({{ webinarDates.length }})
+      </button>
+      <button type="button" class="btn-manage" *ngIf="authService.hasPermission(permissions.funnelLocationUpload)" (click)="toggleLocationUpload()">
+        {{ showLocationUpload ? 'Hide' : 'Upload' }} Location Data ({{ locationUploadStatusCount }} on file)
       </button>
     </div>
 
@@ -128,6 +131,74 @@
       </div>
     </div>
 
+    <div class="date-manager location-upload-panel" *ngIf="showLocationUpload && authService.hasPermission(permissions.funnelLocationUpload)">
+      <p class="section-subtitle">
+        Used as a fallback when a registrant/paid user has no location on file in userdetail. Re-uploading updates existing entries by mobile/email rather than duplicating them.
+      </p>
+
+      <input type="file" accept=".csv,.xlsx,.xls" (change)="onLocationFileSelected($event)">
+
+      <div *ngIf="loadingLocationPreview" class="loading-inline">Reading file...</div>
+      <div *ngIf="locationUploadError" class="error">{{ locationUploadError }}</div>
+      <div *ngIf="locationUploadResult" class="segment-summary">
+        Saved <strong>{{ locationUploadResult.saved }}</strong>{{ locationUploadResult.skipped > 0 ? ' (' + locationUploadResult.skipped + ' skipped — missing mobile/email or location)' : '' }}.
+      </div>
+
+      <ng-container *ngIf="locationUploadHeaders.length > 0 && !loadingLocationPreview">
+        <p class="section-subtitle">{{ locationUploadTotalRows }} rows found. Map the columns from your file:</p>
+
+        <div class="column-mapping-grid">
+          <label>
+            Name <span class="optional-tag">(optional)</span>
+            <select [(ngModel)]="locationUploadNameCol">
+              <option [ngValue]="null">— none —</option>
+              <option *ngFor="let h of locationUploadHeaders; let i = index" [ngValue]="i">{{ h }}</option>
+            </select>
+          </label>
+          <label>
+            Mobile
+            <select [(ngModel)]="locationUploadMobileCol">
+              <option [ngValue]="null">— pick a column —</option>
+              <option *ngFor="let h of locationUploadHeaders; let i = index" [ngValue]="i">{{ h }}</option>
+            </select>
+          </label>
+          <label>
+            Email
+            <select [(ngModel)]="locationUploadEmailCol">
+              <option [ngValue]="null">— pick a column —</option>
+              <option *ngFor="let h of locationUploadHeaders; let i = index" [ngValue]="i">{{ h }}</option>
+            </select>
+          </label>
+          <label>
+            Location
+            <select [(ngModel)]="locationUploadLocationCol">
+              <option [ngValue]="null">— pick a column —</option>
+              <option *ngFor="let h of locationUploadHeaders; let i = index" [ngValue]="i">{{ h }}</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th *ngFor="let h of locationUploadHeaders">{{ h }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of locationUploadPreviewRows">
+                <td *ngFor="let cell of row">{{ cell }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <button type="button" class="btn-apply" [disabled]="!locationUploadMappingComplete || locationUploadSaving" (click)="submitLocationUpload()">
+          {{ locationUploadSaving ? 'Saving...' : 'Confirm & Save' }}
+        </button>
+      </ng-container>
+    </div>
+
     <div *ngIf="loadingSegment3" class="loading-inline">Loading...</div>
     <div *ngIf="errorSegment3" class="error">{{ errorSegment3 }}</div>
 
@@ -137,25 +208,119 @@
         <span *ngIf="unresolvedCount > 0" class="unresolved-note">· {{ unresolvedCount }} could not be matched to any batch date and were excluded</span>
       </div>
 
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Batch</th>
-              <th class="col-num">Registrants</th>
-              <th class="col-num">Conversions</th>
-              <th class="col-num">Conversion Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let row of batchRows">
-              <td>{{ row.label }}</td>
-              <td class="col-num">{{ row.registrants }}</td>
-              <td class="col-num">{{ row.converted }}</td>
-              <td class="col-num rate-cell">{{ row.conversionRate !== null ? row.conversionRate + '%' : 'N/A' }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="mini-controls">
+        <span class="filter-label">Showing:</span>
+        <div class="button-group">
+          <button [class.active]="batchDetailMode === 'latest2'" (click)="onBatchDetailModeChange('latest2')">Latest 2 Webinars</button>
+          <button [class.active]="batchDetailMode === 'custom'" (click)="onBatchDetailModeChange('custom')">Custom</button>
+        </div>
+
+        <label
+          class="checkbox-label strict-chennai-toggle"
+          title="Unchecked: also counts nearby Chennai-metro districts as Chennai — Chengalpattu, Tiruvallur, Kanchipuram, Tambaram, Ambattur, Avadi, Poonamallee, Sriperumbudur, Pallavaram, Chromepet, Maraimalai Nagar. Checked: only an exact 'Chennai' match counts.">
+          <input type="checkbox" [(ngModel)]="strictChennai" (change)="onStrictChennaiChange()">
+          Explicitly Chennai only
+        </label>
+      </div>
+
+      <div class="custom-date-picker" *ngIf="batchDetailMode === 'custom'">
+        <span class="date-chip custom-date-chip"
+          *ngFor="let d of webinarDates"
+          [class.selected]="isCustomDateSelected(d.date.slice(0,10))"
+          (click)="toggleCustomDate(d.date.slice(0,10))">
+          {{ d.label }}
+        </span>
+      </div>
+
+      <div *ngIf="loadingBatchDetail" class="loading-inline">Loading batch detail...</div>
+      <div *ngIf="errorBatchDetail" class="error">{{ errorBatchDetail }}</div>
+
+      <div class="batch-detail-list" *ngIf="!loadingBatchDetail && !errorBatchDetail">
+        <div class="batch-detail-block" *ngFor="let batch of batchDetails">
+          <h3 class="batch-detail-title">{{ batch.label }}</h3>
+
+          <div class="batch-detail-cards">
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">📝</span>
+              <span class="batch-detail-value">{{ batch.registrants }}</span>
+              <span class="batch-detail-label">Total Registered</span>
+            </div>
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">💳</span>
+              <span class="batch-detail-value">{{ batch.paid }}</span>
+              <span class="batch-detail-label">Total Paid (any funnel)</span>
+            </div>
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">⏱️</span>
+              <span class="batch-detail-value">{{ batch.avgDaysToPay !== null ? batch.avgDaysToPay : 'N/A' }}</span>
+              <span class="batch-detail-label">Avg Days to Become Paid</span>
+            </div>
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">🎯</span>
+              <span class="batch-detail-value">{{ pctFromCurrentWebinar(batch) }}% <span class="batch-detail-raw">({{ currentWebinarCount(batch) }}/{{ batch.paid }})</span></span>
+              <span class="batch-detail-label">Paid From Current Webinar</span>
+            </div>
+          </div>
+
+          <div class="metric-subsection-label">Registrant Location (Chennai vs. Non-Chennai)</div>
+          <div class="batch-detail-cards">
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">📍</span>
+              <span class="batch-detail-value">{{ batch.chennaiRegistrantPct }}% <span class="batch-detail-raw">({{ batch.chennaiRegistrants }})</span></span>
+              <span class="batch-detail-label">Registrants — Chennai</span>
+            </div>
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">🗺️</span>
+              <span class="batch-detail-value">{{ batch.nonChennaiRegistrantPct }}% <span class="batch-detail-raw">({{ batch.nonChennaiRegistrants }})</span></span>
+              <span class="batch-detail-label">Registrants — Non-Chennai</span>
+            </div>
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">✅</span>
+              <span class="batch-detail-value">
+                {{ batch.chennaiConversionPct !== null ? batch.chennaiConversionPct + '%' : 'N/A' }}
+                <span class="batch-detail-raw">({{ batch.chennaiPaidCount }}/{{ batch.chennaiRegistrants }})</span>
+              </span>
+              <span class="batch-detail-label">Chennai Conversion Rate</span>
+            </div>
+            <div class="batch-detail-card">
+              <span class="batch-detail-icon">✅</span>
+              <span class="batch-detail-value">
+                {{ batch.nonChennaiConversionPct !== null ? batch.nonChennaiConversionPct + '%' : 'N/A' }}
+                <span class="batch-detail-raw">({{ batch.nonChennaiPaidCount }}/{{ batch.nonChennaiRegistrants }})</span>
+              </span>
+              <span class="batch-detail-label">Non-Chennai Conversion Rate</span>
+            </div>
+          </div>
+
+          <div class="table-scroll" *ngIf="batch.breakdown.length > 0">
+            <table class="data-table mini-breakdown-table clickable-rows">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th class="col-num">Paid Users</th>
+                  <th class="col-num">% Contribution</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  *ngFor="let row of batch.breakdown"
+                  (click)="openPeopleModal(batch.label, row)"
+                  [style.backgroundColor]="gradientBackground(row.percentage, maxPercentageIn(batch))">
+                  <td>
+                    <span class="badge" [class.badge-green]="row.source === 'Current Webinar'" [class.badge-blue]="row.source !== 'Current Webinar' && row.source !== 'Unknown'" [class.badge-grey]="row.source === 'Unknown'">
+                      {{ row.source }}
+                    </span>
+                  </td>
+                  <td class="col-num">{{ row.count }}</td>
+                  <td class="col-num rate-cell">{{ row.percentage }}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div *ngIf="batch.breakdown.length === 0" class="no-data">No paid conversions for this batch.</div>
+        </div>
+
+        <div *ngIf="batchDetails.length === 0" class="no-data">Pick a webinar date to see its detail.</div>
       </div>
 
       <div class="metric-subsection-label">Conversion by Attempt Number</div>
@@ -180,6 +345,56 @@
           </tbody>
         </table>
       </div>
+
+      <div class="metric-subsection-label">% Contribution by Source — Currently Shown Webinar(s)</div>
+      <p class="section-subtitle">
+        Same sources as the breakdown table(s) above, combined across whichever webinar(s) are currently selected.
+      </p>
+      <div class="mini-controls">
+        <div class="button-group">
+          <button [class.active]="sourceChartMode === 'total'" (click)="setSourceChartMode('total')">Total</button>
+          <button [class.active]="sourceChartMode === 'avg'" (click)="setSourceChartMode('avg')">Avg</button>
+        </div>
+      </div>
+      <app-echart-bar
+        *ngIf="sourceChartCategories.length > 0"
+        [categories]="sourceChartCategories"
+        [values]="sourceChartValues"
+        [seriesName]="sourceChartMode === 'total' ? '% of Total Paid' : 'Avg % Contribution'"
+        color="#2d7d3d">
+      </app-echart-bar>
+      <div *ngIf="sourceChartCategories.length === 0" class="no-data">No data to chart yet.</div>
     </ng-container>
   </section>
+
+  <!-- People-in-source popup — deliberately a sibling of every .segment-card, not nested inside
+       one. .segment-card has a hover `transform`, which creates a new containing block for any
+       `position: fixed` descendant, so the overlay would render pinned to that card's box instead
+       of the viewport (that's why it showed up bottom-left/mis-sized instead of centered). -->
+  <div class="modal-overlay" *ngIf="showPeopleModal" (click)="closePeopleModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ selectedBreakdown?.source }} — {{ selectedBatchLabel }} ({{ selectedBreakdown?.people?.length || 0 }})</h2>
+        <button class="btn-close" (click)="closePeopleModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Mobile</th>
+              <th>Email</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let person of selectedBreakdown?.people">
+              <td>{{ person.name }}</td>
+              <td>{{ person.phone }}</td>
+              <td>{{ person.email || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>

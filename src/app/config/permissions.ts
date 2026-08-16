@@ -18,6 +18,7 @@ export const PERMISSIONS = {
   funnelSegment2: 'card:funnel-analysis:segment2',
   funnelSegment3: 'card:funnel-analysis:segment3',
   funnelDateManager: 'card:funnel-analysis:date-manager',
+  funnelLocationUpload: 'card:funnel-analysis:location-upload',
 
   unrealizedPnl: 'tab:unrealized-pnl',
   unrealizedPnlExport: 'card:unrealized-pnl:export',

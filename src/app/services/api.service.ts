@@ -341,6 +341,33 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/segment3`);
   }
 
+  getFunnelBatchDetail(dates?: string[], strictChennai?: boolean): Observable<APIResponse<any[]>> {
+    const paramObj: any = {};
+    if (dates && dates.length > 0) paramObj.dates = dates.join(',');
+    if (strictChennai) paramObj.strictChennai = 'true';
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/funnel-analysis/segment3/batch-detail`, { params: this.buildParams(paramObj) });
+  }
+
+  getLocationUploadStatus(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/location-upload/status`);
+  }
+
+  previewLocationUpload(file: File): Observable<APIResponse<any>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/location-upload/preview`, formData);
+  }
+
+  commitLocationUpload(file: File, mapping: { nameCol: number; mobileCol: number; emailCol: number; locationCol: number }): Observable<APIResponse<any>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('nameCol', String(mapping.nameCol));
+    formData.append('mobileCol', String(mapping.mobileCol));
+    formData.append('emailCol', String(mapping.emailCol));
+    formData.append('locationCol', String(mapping.locationCol));
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/location-upload/commit`, formData);
+  }
+
   getWebinarBatchDates(): Observable<APIResponse<any[]>> {
     return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/funnel-analysis/webinar-dates`);
   }

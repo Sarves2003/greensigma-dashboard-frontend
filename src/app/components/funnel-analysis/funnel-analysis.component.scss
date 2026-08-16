@@ -86,6 +86,30 @@
   }
 }
 
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1f2937;
+  cursor: pointer;
+  white-space: nowrap;
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+}
+
+.strict-chennai-toggle {
+  padding: 0.4rem 0.7rem;
+  background-color: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 6px;
+}
+
 .button-group {
   display: flex;
   gap: 0.4rem;
@@ -153,6 +177,46 @@
   margin-bottom: 1.5rem;
 }
 
+.location-upload-panel {
+  input[type='file'] {
+    display: block;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+  }
+}
+
+.column-mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4b5563;
+  }
+
+  select {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: white;
+    color: #1f2937;
+    font-weight: 400;
+  }
+}
+
+.optional-tag {
+  font-weight: 400;
+  color: #9ca3af;
+  text-transform: none;
+}
+
 .date-manager-add {
   display: flex;
   gap: 0.6rem;
@@ -183,6 +247,33 @@
   border-radius: 999px;
   font-size: 0.78rem;
   color: #374151;
+}
+
+.custom-date-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.9rem;
+  background-color: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+}
+
+.custom-date-chip {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #2d7d3d;
+  }
+
+  &.selected {
+    background-color: #2d7d3d;
+    border-color: #2d7d3d;
+    color: white;
+  }
 }
 
 .date-chip-remove {
@@ -282,4 +373,154 @@
     background-color: #ede9fe;
     color: #6d28d9;
   }
+
+  &.badge-green {
+    background-color: #dcfce7;
+    color: #15803d;
+  }
+
+  &.badge-grey {
+    background-color: #f3f4f6;
+    color: #4b5563;
+  }
+}
+
+.clickable-rows tbody tr {
+  cursor: pointer;
+}
+
+// ============ People-in-source modal ============
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 1rem;
+
+  h2 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1.05rem;
+  }
+
+  .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      color: #1f2937;
+    }
+  }
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-x: auto;
+}
+
+.mini-controls select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: white;
+  color: #1f2937;
+}
+
+// ============ Segment 3: per-batch detail ============
+.batch-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.batch-detail-block {
+  background-color: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.batch-detail-title {
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.batch-detail-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.batch-detail-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: white;
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+
+  .batch-detail-icon {
+    font-size: 1.25rem;
+  }
+
+  .batch-detail-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #0c4a6e;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .batch-detail-raw {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  .batch-detail-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+}
+
+.mini-breakdown-table {
+  min-width: 0;
+  background: white;
 }
