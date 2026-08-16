@@ -384,6 +384,7 @@
               <th>Name</th>
               <th>Mobile</th>
               <th>Email</th>
+              <th>Created On</th>
             </tr>
           </thead>
           <tbody>
@@ -391,6 +392,7 @@
               <td>{{ person.name }}</td>
               <td>{{ person.phone }}</td>
               <td>{{ person.email || '-' }}</td>
+              <td>{{ toIST(person.createdOn) }}</td>
             </tr>
           </tbody>
         </table>

@@ -46,6 +46,7 @@ interface BreakdownPerson {
   name: string;
   phone: string;
   email: string | null;
+  createdOn: string | null;
 }
 
 interface BatchBreakdownRow {
@@ -573,5 +574,18 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
           this.locationUploadSaving = false;
         },
       });
+  }
+
+  toIST(iso: string | null): string {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   }
 }
