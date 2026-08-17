@@ -30,4 +30,10 @@ export const PERMISSIONS = {
   usageAnalysisMain: 'card:usage-analysis:main',
   usageAnalysisDemoCall: 'card:usage-analysis:demo-call',
   usageAnalysisAssessment: 'card:usage-analysis:assessment',
+
+  activationTracker: 'tab:activation-tracker',
+  activationTrackerMain: 'card:activation-tracker:main',
+
+  emandateTracker: 'tab:emandate-tracker',
+  emandateTrackerMain: 'card:emandate-tracker:main',
 } as const;

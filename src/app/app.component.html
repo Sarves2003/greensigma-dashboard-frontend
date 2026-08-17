@@ -73,6 +73,24 @@
           <span class="icon">🧭</span>
           <span class="label">Usage Analysis</span>
         </a>
+        <a
+          *ngIf="authService.hasPermission(permissions.activationTracker)"
+          routerLink="/activation-tracker"
+          routerLinkActive="active"
+          class="nav-item"
+        >
+          <span class="icon">📅</span>
+          <span class="label">7 Day Activation</span>
+        </a>
+        <a
+          *ngIf="authService.hasPermission(permissions.emandateTracker)"
+          routerLink="/emandate-tracker"
+          routerLinkActive="active"
+          class="nav-item"
+        >
+          <span class="icon">🏦</span>
+          <span class="label">Emandate</span>
+        </a>
 
         <a *ngIf="authService.isOwner()" routerLink="/admin" routerLinkActive="active" class="nav-item admin-item">
           <span class="icon">🛡️</span>

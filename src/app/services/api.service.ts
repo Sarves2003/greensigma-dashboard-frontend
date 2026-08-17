@@ -81,6 +81,32 @@ export class ApiService {
     return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/usage-analysis/assessments`);
   }
 
+  // Activation Tracker
+  getActivationTable(date: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/activation-tracker/table`, { params: this.buildParams({ date }) });
+  }
+
+  saveActivationRemark(phone: string, batchDate: string, remark: string): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/activation-tracker/remark`, { phone, batchDate, remark });
+  }
+
+  saveActivationDayOverride(phone: string, batchDate: string, day: number, completed: boolean | null): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/activation-tracker/day-override`, { phone, batchDate, day, completed });
+  }
+
+  // Emandate Tracker
+  getEmandateTable(date: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/table`, { params: this.buildParams({ date }) });
+  }
+
+  saveEmandateRemark(phone: string, batchDate: string, remark: string): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/remark`, { phone, batchDate, remark });
+  }
+
+  saveEmandateStatusOverride(phone: string, batchDate: string, status: string | null): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/status-override`, { phone, batchDate, status });
+  }
+
   // Overview (legacy)
   getKPIs(params: any): Observable<APIResponse<KPIResponse[]>> {
     let httpParams = new HttpParams();

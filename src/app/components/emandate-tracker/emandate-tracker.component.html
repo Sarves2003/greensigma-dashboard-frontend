@@ -1,0 +1,215 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Emandate</h1>
+    <p class="subtitle">Payment status and e-mandate (autopay) tracking for a selected webinar batch's paid users</p>
+  </div>
+
+  <ng-container *ngIf="authService.hasPermission(permissions.emandateTrackerMain)">
+    <section class="segment-card">
+      <h2 class="section-title">Manage Webinar Dates</h2>
+
+      <div class="mini-controls">
+        <button type="button" class="btn-manage" (click)="toggleDateManager()">
+          {{ showDateManager ? 'Hide' : 'Manage' }} Webinar Dates ({{ webinarDates.length }})
+        </button>
+      </div>
+
+      <div class="date-manager" *ngIf="showDateManager">
+        <div class="date-manager-add">
+          <input type="date" [(ngModel)]="newDateInput" placeholder="Add a new webinar date">
+          <button type="button" class="btn-apply" (click)="addDate()">Add Date</button>
+        </div>
+        <div *ngIf="dateManagerError" class="error">{{ dateManagerError }}</div>
+        <div class="date-chip-list" *ngIf="!loadingDates">
+          <span class="date-chip" *ngFor="let d of webinarDates">
+            {{ d.label }}
+            <button type="button" class="date-chip-remove" (click)="removeDate(d._id)">✕</button>
+          </span>
+        </div>
+      </div>
+      <div *ngIf="loadingDates" class="loading-inline">Loading webinar dates...</div>
+    </section>
+
+    <section class="segment-card table-section">
+      <h2 class="section-title">
+        Payment &amp; Emandate Tracking
+        <span class="section-note">ℹ️ Emandate tracking only applies to batches from 23 May 2026 onward — earlier batches predate the e-mandate/installment process.</span>
+      </h2>
+
+      <div class="mini-controls">
+        <span class="filter-label">Webinar date:</span>
+        <select [(ngModel)]="selectedDate" (change)="onDateChange()">
+          <option *ngFor="let d of webinarDates" [value]="d.date.slice(0,10)">{{ d.label }}</option>
+        </select>
+      </div>
+
+      <div *ngIf="loadingTable" class="loading-inline">Loading emandate data...</div>
+      <div *ngIf="errorTable" class="error">{{ errorTable }}</div>
+
+      <ng-container *ngIf="!loadingTable && !errorTable && selectedDate && summary as s">
+        <div class="summary-cards">
+          <div class="summary-card">
+            <span class="summary-value">{{ s.totalInitialPaid }}</span>
+            <span class="summary-label">Total Initial Paid</span>
+          </div>
+          <div class="summary-card">
+            <span class="summary-value">{{ s.totalFullPaid }}</span>
+            <span class="summary-label">Total Full Paid</span>
+          </div>
+          <div class="summary-card">
+            <span class="summary-value">{{ s.remaining }}</span>
+            <span class="summary-label">Remaining (Owes Emandate)</span>
+          </div>
+          <div class="summary-card" [class.dimmed]="!s.emandateEraApplies">
+            <span class="summary-value">{{ s.completedPct }}% <span class="summary-raw">({{ s.completed }})</span></span>
+            <span class="summary-label">Emandate Completed</span>
+          </div>
+          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal('not_done', 'Not At All Done')">
+            <span class="summary-value">{{ s.notDone }}</span>
+            <span class="summary-label">Not At All Done</span>
+          </div>
+          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal('cancelled', 'Emandate Cancelled')">
+            <span class="summary-value">{{ s.cancelled }}</span>
+            <span class="summary-label">Emandate Cancelled</span>
+          </div>
+          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal('halted', 'Halted')" title="Razorpay doesn't record a specific decline reason — Halted is the closest available signal, and usually (not always) means a failed auto-debit due to insufficient funds.">
+            <span class="summary-value">{{ s.halted }}</span>
+            <span class="summary-label">Halted <span class="info-dot">ℹ️</span></span>
+          </div>
+        </div>
+        <p class="section-note era-note" *ngIf="!s.emandateEraApplies">This batch predates the e-mandate process — everyone here is either Full Paid or Refunded, so the emandate cards above don't apply.</p>
+
+        <div class="table-header">
+          <h3>Users ({{ filteredRows.length }})</h3>
+          <div class="table-header-controls">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Search name, mobile or email..."
+              [(ngModel)]="searchQuery"
+              (input)="onSearchChange()">
+            <select [(ngModel)]="mandateFilter" (change)="onMandateFilterChange()">
+              <option *ngFor="let opt of mandateFilterOptions" [value]="opt.value">{{ opt.label }}</option>
+            </select>
+            <div class="page-size-picker">
+              <span class="filter-label">Rows:</span>
+              <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+                <option *ngFor="let n of pageSizeOptions" [value]="n">{{ n }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data-table sortable emandate-table">
+            <thead>
+              <tr>
+                <th (click)="onSort('name')" [class.active]="sortBy === 'name'">Name <span *ngIf="sortBy === 'name'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+                <th (click)="onSort('phone')" [class.active]="sortBy === 'phone'">Mobile <span *ngIf="sortBy === 'phone'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+                <th (click)="onSort('paymentStatus')" [class.active]="sortBy === 'paymentStatus'">Payment Status <span *ngIf="sortBy === 'paymentStatus'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+                <th class="col-center">Payment 2</th>
+                <th class="col-center">Payment 3</th>
+                <th class="col-center">Mandate State</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of pagedRows" [class.row-settled]="row.settled">
+                <td>{{ row.name }}</td>
+                <td>{{ row.phone }}</td>
+                <td>
+                  <select
+                    class="status-select"
+                    [class.badge-green]="row.paymentStatus === 'Full Paid'"
+                    [class.badge-blue]="row.paymentStatus === 'Emandate'"
+                    [class.badge-grey]="row.paymentStatus === 'Pending'"
+                    [class.badge-red]="row.paymentStatus === 'Cancelled' || row.paymentStatus === 'Refunded'"
+                    [(ngModel)]="row.paymentStatus"
+                    (change)="onStatusChange(row)">
+                    <option *ngFor="let opt of paymentStatusOptions" [value]="opt">{{ opt }}</option>
+                  </select>
+                  <span class="remark-saving" *ngIf="statusSaving.has(row.phone)">Saving...</span>
+                </td>
+                <td class="col-center">
+                  <ng-container *ngIf="row.payment2; else noPayment">
+                    <span class="badge" [class.badge-green]="row.payment2.status === 'captured'" [class.badge-grey]="row.payment2.status === 'refunded'">
+                      {{ row.payment2.status === 'captured' ? 'Captured' : 'Refunded' }}
+                    </span>
+                    <div class="payment-date">{{ toIST(row.payment2.date) }}</div>
+                  </ng-container>
+                </td>
+                <td class="col-center">
+                  <ng-container *ngIf="row.payment3; else noPayment">
+                    <span class="badge" [class.badge-green]="row.payment3.status === 'captured'" [class.badge-grey]="row.payment3.status === 'refunded'">
+                      {{ row.payment3.status === 'captured' ? 'Captured' : 'Refunded' }}
+                    </span>
+                    <div class="payment-date">{{ toIST(row.payment3.date) }}</div>
+                  </ng-container>
+                </td>
+                <td class="col-center">
+                  <span class="badge"
+                    [class.badge-green]="row.mandateState === 'active'"
+                    [class.badge-red]="row.mandateState === 'cancelled' || row.mandateState === 'halted'"
+                    [class.badge-grey]="row.mandateState === 'not_done' || row.mandateState === 'not_applicable'">
+                    {{ mandateStateLabel(row.mandateState) }}
+                  </span>
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    class="remark-input"
+                    [(ngModel)]="row.remark"
+                    (change)="onRemarkChange(row)"
+                    placeholder="Add a note...">
+                  <span class="remark-saving" *ngIf="remarkSaving.has(row.phone)">Saving...</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="filteredRows.length === 0" class="no-data">No users match the current search/filter.</div>
+
+        <div class="pagination" *ngIf="filteredRows.length > 0">
+          <span class="page-info">{{ pageRangeStart }}–{{ pageRangeEnd }} of {{ filteredRows.length }}</span>
+          <div class="pagination-controls">
+            <button type="button" class="btn-manage" [disabled]="currentPage === 1" (click)="prevPage()">Previous</button>
+            <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+            <button type="button" class="btn-manage" [disabled]="currentPage === totalPages" (click)="nextPage()">Next</button>
+          </div>
+        </div>
+      </ng-container>
+    </section>
+  </ng-container>
+
+  <ng-template #noPayment><span class="no-data-inline">-</span></ng-template>
+
+  <div class="modal-overlay" *ngIf="showBucketModal" (click)="closeBucketModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ bucketModalTitle }} ({{ bucketModalRows.length }})</h2>
+        <button class="btn-close" (click)="closeBucketModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll" *ngIf="bucketModalRows.length > 0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of bucketModalRows">
+                <td>{{ row.name }}</td>
+                <td>{{ row.phone }}</td>
+                <td>{{ row.email }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="no-data" *ngIf="bucketModalRows.length === 0">No users in this bucket.</p>
+      </div>
+    </div>
+  </div>
+</div>

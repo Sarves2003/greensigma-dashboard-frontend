@@ -113,6 +113,8 @@ export class AuthService {
     { permission: 'tab:gs-health', path: '/gs-health' },
     { permission: 'tab:funnel-analysis', path: '/funnel-analysis' },
     { permission: 'tab:usage-analysis', path: '/usage-analysis' },
+    { permission: 'tab:activation-tracker', path: '/activation-tracker' },
+    { permission: 'tab:emandate-tracker', path: '/emandate-tracker' },
   ];
 
   firstAccessibleRoute(): string {

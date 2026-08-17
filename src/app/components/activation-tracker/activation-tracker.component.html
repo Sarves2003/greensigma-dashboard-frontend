@@ -1,0 +1,178 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>7 Day Activation</h1>
+    <p class="subtitle">Day 0–7 onboarding check-ins for a selected webinar batch's paid users</p>
+  </div>
+
+  <ng-container *ngIf="authService.hasPermission(permissions.activationTrackerMain)">
+    <section class="segment-card">
+      <h2 class="section-title">Manage Webinar Dates</h2>
+
+      <div class="mini-controls">
+        <button type="button" class="btn-manage" (click)="toggleDateManager()">
+          {{ showDateManager ? 'Hide' : 'Manage' }} Webinar Dates ({{ webinarDates.length }})
+        </button>
+      </div>
+
+      <div class="date-manager" *ngIf="showDateManager">
+        <div class="date-manager-add">
+          <input type="date" [(ngModel)]="newDateInput" placeholder="Add a new webinar date">
+          <button type="button" class="btn-apply" (click)="addDate()">Add Date</button>
+        </div>
+        <div *ngIf="dateManagerError" class="error">{{ dateManagerError }}</div>
+        <div class="date-chip-list" *ngIf="!loadingDates">
+          <span class="date-chip" *ngFor="let d of webinarDates">
+            {{ d.label }}
+            <button type="button" class="date-chip-remove" (click)="removeDate(d._id)">✕</button>
+          </span>
+        </div>
+      </div>
+      <div *ngIf="loadingDates" class="loading-inline">Loading webinar dates...</div>
+    </section>
+
+    <section class="segment-card table-section">
+      <h2 class="section-title">
+        Activation Tracking
+        <span class="section-note">ℹ️ Day 0 = the selected webinar/batch date. Day N = a person's own check-in submission, N days after that date.</span>
+      </h2>
+
+      <div class="mini-controls">
+        <span class="filter-label">Webinar date:</span>
+        <select [(ngModel)]="selectedDate" (change)="onDateChange()">
+          <option *ngFor="let d of webinarDates" [value]="d.date.slice(0,10)">{{ d.label }}</option>
+        </select>
+      </div>
+
+      <div *ngIf="loadingTable" class="loading-inline">Loading activation data...</div>
+      <div *ngIf="errorTable" class="error">{{ errorTable }}</div>
+
+      <ng-container *ngIf="!loadingTable && !errorTable && selectedDate">
+        <div class="summary-cards">
+          <div class="summary-card">
+            <span class="summary-value">{{ totalUsers }}</span>
+            <span class="summary-label">Total Users</span>
+          </div>
+          <div class="summary-card" *ngFor="let d of dayIndexes">
+            <span class="summary-value">{{ dayStats[d]?.pct || 0 }}% <span class="summary-raw">({{ dayStats[d]?.count || 0 }})</span></span>
+            <span class="summary-label">Day {{ d }} Completion</span>
+          </div>
+        </div>
+
+        <div class="table-header">
+          <h3>Users ({{ rows.length }})</h3>
+          <div class="page-size-picker">
+            <span class="filter-label">Rows:</span>
+            <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+              <option *ngFor="let n of pageSizeOptions" [value]="n">{{ n }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data-table sortable activation-table">
+            <thead>
+              <tr>
+                <th (click)="onSort('name')" [class.active]="sortBy === 'name'">Name <span *ngIf="sortBy === 'name'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+                <th (click)="onSort('phone')" [class.active]="sortBy === 'phone'">Number <span *ngIf="sortBy === 'phone'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+                <th class="col-center" (click)="onSort('status')" [class.active]="sortBy === 'status'">Status <span *ngIf="sortBy === 'status'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+                <th class="col-center" *ngFor="let d of dayIndexes">Day {{ d }}</th>
+                <th class="col-num" (click)="onSort('score')" [class.active]="sortBy === 'score'">Score <span *ngIf="sortBy === 'score'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of pagedRows">
+                <td>{{ row.name }}</td>
+                <td>{{ row.phone }}</td>
+                <td class="col-center">
+                  <span class="badge"
+                    [class.badge-green]="row.status === 'Full Paid'"
+                    [class.badge-blue]="row.status === 'Emandate'"
+                    [class.badge-grey]="row.status === 'None'">
+                    {{ row.status }}
+                  </span>
+                </td>
+                <td class="col-center" *ngFor="let d of dayIndexes">
+                  <span
+                    class="day-cell"
+                    [class.completed]="row.days[d].completed"
+                    [class.manual]="row.days[d].manual"
+                    [title]="row.days[d].manual ? 'Manually set' : ''"
+                    (click)="openResponseModal(row, d)">
+                    {{ row.days[d].completed ? '✓' : '-' }}
+                  </span>
+                </td>
+                <td class="col-num score-cell">{{ row.score }}</td>
+                <td>
+                  <input
+                    type="text"
+                    class="remark-input"
+                    [(ngModel)]="row.remark"
+                    (change)="onRemarkChange(row)"
+                    placeholder="Add a note...">
+                  <span class="remark-saving" *ngIf="remarkSaving.has(row.phone)">Saving...</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="rows.length === 0" class="no-data">No paid users found for this batch.</div>
+
+        <div class="pagination" *ngIf="rows.length > 0">
+          <span class="page-info">{{ pageRangeStart }}–{{ pageRangeEnd }} of {{ rows.length }}</span>
+          <div class="pagination-controls">
+            <button type="button" class="btn-manage" [disabled]="currentPage === 1" (click)="prevPage()">Previous</button>
+            <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+            <button type="button" class="btn-manage" [disabled]="currentPage === totalPages" (click)="nextPage()">Next</button>
+          </div>
+        </div>
+      </ng-container>
+    </section>
+  </ng-container>
+
+  <!-- Day response / manual override popup -->
+  <div class="modal-overlay" *ngIf="showResponseModal" (click)="closeResponseModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ selectedRow?.name }} — Day {{ selectedResponseDay }}</h2>
+        <button class="btn-close" (click)="closeResponseModal()">✕</button>
+      </div>
+      <div class="modal-body" *ngIf="selectedCell as cell">
+        <ng-container *ngIf="cell.submittedAt">
+          <p class="response-meta">Submitted: {{ toIST(cell.submittedAt) }}</p>
+          <p class="response-text">{{ cell.response || '(No comment left for this day)' }}</p>
+        </ng-container>
+        <p class="response-text no-submission" *ngIf="!cell.submittedAt">
+          No check-in on file for this day{{ cell.manual ? ' — currently marked manually.' : '.' }}
+        </p>
+
+        <div class="override-actions">
+          <button
+            type="button"
+            class="btn-apply"
+            *ngIf="!cell.completed"
+            [disabled]="overrideSaving"
+            (click)="setDayOverride(true)">
+            Mark as Done
+          </button>
+          <button
+            type="button"
+            class="btn-clear-filter"
+            *ngIf="cell.completed"
+            [disabled]="overrideSaving"
+            (click)="setDayOverride(false)">
+            Mark as Not Done
+          </button>
+          <button
+            type="button"
+            class="btn-manage"
+            *ngIf="cell.manual"
+            [disabled]="overrideSaving"
+            (click)="setDayOverride(null)">
+            Revert to Sheet Value
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

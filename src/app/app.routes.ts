@@ -15,6 +15,8 @@ import { UnrealizedPnlComponent } from './components/unrealized-pnl/unrealized-p
 import { ProductMetricsComponent } from './components/product-metrics/product-metrics.component';
 import { FunnelAnalysisComponent } from './components/funnel-analysis/funnel-analysis.component';
 import { UsageAnalysisComponent } from './components/usage-analysis/usage-analysis.component';
+import { ActivationTrackerComponent } from './components/activation-tracker/activation-tracker.component';
+import { EmandateTrackerComponent } from './components/emandate-tracker/emandate-tracker.component';
 import { AdminManagementComponent } from './components/admin-management/admin-management.component';
 import { NoAccessComponent } from './components/no-access/no-access.component';
 import { authGuard, ownerGuard, permissionGuard } from './guards/auth.guard';
@@ -38,6 +40,8 @@ export const routes: Routes = [
   { path: 'product-metrics', component: ProductMetricsComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.productMetrics)] },
   { path: 'funnel-analysis', component: FunnelAnalysisComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.funnelAnalysis)] },
   { path: 'usage-analysis', component: UsageAnalysisComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.usageAnalysis)] },
+  { path: 'activation-tracker', component: ActivationTrackerComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.activationTracker)] },
+  { path: 'emandate-tracker', component: EmandateTrackerComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.emandateTracker)] },
   { path: 'admin', component: AdminManagementComponent, canActivate: [authGuard, ownerGuard] },
   { path: 'no-access', component: NoAccessComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: '/product-metrics' },
