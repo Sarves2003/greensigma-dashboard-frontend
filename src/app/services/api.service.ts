@@ -99,6 +99,10 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/table`, { params: this.buildParams({ date }) });
   }
 
+  getEmandateOverview(dates: string[]): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/overview`, { params: this.buildParams({ dates: dates.join(',') }) });
+  }
+
   saveEmandateRemark(phone: string, batchDate: string, remark: string): Observable<APIResponse<any>> {
     return this.http.post<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/remark`, { phone, batchDate, remark });
   }

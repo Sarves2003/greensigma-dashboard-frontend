@@ -6,6 +6,7 @@ import { takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { PERMISSIONS } from '../../config/permissions';
+import { ChartComponent } from '../shared/chart/chart.component';
 
 interface WebinarDate {
   _id: string;
@@ -31,6 +32,7 @@ interface EmandateRow {
   mandateState: MandateState;
   remark: string;
   settled: boolean;
+  paymentDoneCount: number;
 }
 
 interface EmandateSummary {
@@ -45,12 +47,37 @@ interface EmandateSummary {
   emandateEraApplies: boolean;
 }
 
+interface OverviewBucketUser {
+  name: string;
+  phone: string;
+  batchDate: string;
+  paymentDoneCount: number;
+  settled: boolean;
+}
+
+interface EmandateOverview {
+  totalOwesEmandate: number;
+  completed: number;
+  completedPct: number;
+  notDone: number;
+  notDonePct: number;
+  cancelled: number;
+  cancelledPct: number;
+  halted: number;
+  haltedPct: number;
+  emandateEraApplies: boolean;
+  buckets: { notDone: OverviewBucketUser[]; cancelled: OverviewBucketUser[]; halted: OverviewBucketUser[] };
+  chart: { batchDate: string; initialCompletionPct: number | null; fullPaymentCompletionPct: number | null }[];
+}
+
 type SortKey = 'name' | 'phone' | 'paymentStatus';
+type OverviewFilterMode = 'this' | 'previous' | 'last2' | 'custom';
+type OverviewBucketKey = 'notDone' | 'cancelled' | 'halted';
 
 @Component({
   selector: 'app-emandate-tracker',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChartComponent],
   templateUrl: './emandate-tracker.component.html',
   styleUrls: ['./emandate-tracker.component.scss'],
 })
@@ -100,6 +127,25 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
   bucketModalTitle = '';
   bucketModalRows: EmandateRow[] = [];
 
+  overviewFilter: OverviewFilterMode = 'this';
+  overviewFilterOptions: { value: OverviewFilterMode; label: string }[] = [
+    { value: 'this', label: 'This Batch' },
+    { value: 'previous', label: 'Previous Batch' },
+    { value: 'last2', label: 'Last 2 Batches' },
+    { value: 'custom', label: 'Custom' },
+  ];
+  customDates: string[] = [];
+
+  overview: EmandateOverview | null = null;
+  loadingOverview = false;
+  errorOverview: string | null = null;
+  initialCompletionChartData: { label: string; value: number }[] = [];
+  fullPaymentChartData: { label: string; value: number }[] = [];
+
+  showOverviewBucketModal = false;
+  overviewBucketTitle = '';
+  overviewBucketUsers: OverviewBucketUser[] = [];
+
   private destroy$ = new Subject<void>();
 
   constructor(private apiService: ApiService, public authService: AuthService) {}
@@ -126,6 +172,7 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
               const latest = [...this.webinarDates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
               this.selectedDate = latest.date.slice(0, 10);
               this.loadTable();
+              this.loadOverview();
             }
           }
           this.loadingDates = false;
@@ -181,6 +228,7 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
 
   onDateChange() {
     this.loadTable();
+    if (this.overviewFilter !== 'custom') this.loadOverview();
   }
 
   loadTable() {
@@ -194,11 +242,7 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           if (response.success && response.data) {
-            const rows: EmandateRow[] = response.data.rows || [];
-            this.rows = rows.map((r) => ({
-              ...r,
-              settled: r.paymentStatus === 'Full Paid' || (r.payment2?.status === 'captured' && r.payment3?.status === 'captured'),
-            }));
+            this.rows = response.data.rows || [];
             this.summary = response.data.summary || null;
             this.currentPage = 1;
             this.refresh();
@@ -213,6 +257,106 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
           this.loadingTable = false;
         },
       });
+  }
+
+  // Sorted oldest-to-newest so "Previous"/"Last 2" and the chart both read left-to-right
+  // chronologically.
+  private get sortedWebinarDates(): WebinarDate[] {
+    return [...this.webinarDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
+
+  private resolveOverviewDateKeys(): string[] {
+    const sorted = this.sortedWebinarDates;
+    const keys = sorted.map((d) => d.date.slice(0, 10));
+    const currentIndex = keys.indexOf(this.selectedDate);
+
+    switch (this.overviewFilter) {
+      case 'this':
+        return currentIndex >= 0 ? [keys[currentIndex]] : [];
+      case 'previous':
+        return currentIndex > 0 ? [keys[currentIndex - 1]] : [];
+      case 'last2':
+        return currentIndex > 0 ? [keys[currentIndex - 1], keys[currentIndex]] : currentIndex === 0 ? [keys[0]] : [];
+      case 'custom':
+        return [...this.customDates].sort();
+      default:
+        return [];
+    }
+  }
+
+  dateLabelFor(dateKey: string): string {
+    return this.webinarDates.find((d) => d.date.slice(0, 10) === dateKey)?.label || dateKey;
+  }
+
+  onOverviewFilterChange() {
+    if (this.overviewFilter !== 'custom') this.loadOverview();
+    else if (this.customDates.length > 0) this.loadOverview();
+    else {
+      this.overview = null;
+      this.initialCompletionChartData = [];
+      this.fullPaymentChartData = [];
+    }
+  }
+
+  toggleCustomDate(dateKey: string) {
+    const idx = this.customDates.indexOf(dateKey);
+    if (idx >= 0) this.customDates.splice(idx, 1);
+    else this.customDates.push(dateKey);
+    if (this.overviewFilter === 'custom') this.loadOverview();
+  }
+
+  loadOverview() {
+    const dateKeys = this.resolveOverviewDateKeys();
+    if (dateKeys.length === 0) {
+      this.overview = null;
+      this.initialCompletionChartData = [];
+      this.fullPaymentChartData = [];
+      this.errorOverview = this.overviewFilter === 'previous' || this.overviewFilter === 'last2'
+        ? 'No earlier batch exists before the selected one.'
+        : null;
+      return;
+    }
+
+    this.loadingOverview = true;
+    this.errorOverview = null;
+
+    this.apiService
+      .getEmandateOverview(dateKeys)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.overview = response.data;
+            this.initialCompletionChartData = response.data.chart.map((c: any) => ({
+              label: this.dateLabelFor(c.batchDate),
+              value: c.initialCompletionPct ?? 0,
+            }));
+            this.fullPaymentChartData = response.data.chart.map((c: any) => ({
+              label: this.dateLabelFor(c.batchDate),
+              value: c.fullPaymentCompletionPct ?? 0,
+            }));
+          } else {
+            this.errorOverview = 'Failed to load overview';
+          }
+          this.loadingOverview = false;
+        },
+        error: (error) => {
+          this.errorOverview = 'Failed to load overview';
+          console.error(error);
+          this.loadingOverview = false;
+        },
+      });
+  }
+
+  openOverviewBucketModal(bucket: OverviewBucketKey, title: string) {
+    if (!this.overview) return;
+    this.overviewBucketTitle = title;
+    this.overviewBucketUsers = this.overview.buckets[bucket];
+    this.showOverviewBucketModal = true;
+  }
+
+  closeOverviewBucketModal() {
+    this.showOverviewBucketModal = false;
   }
 
   onSort(key: SortKey) {

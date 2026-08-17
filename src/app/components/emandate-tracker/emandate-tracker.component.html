@@ -30,6 +30,67 @@
       <div *ngIf="loadingDates" class="loading-inline">Loading webinar dates...</div>
     </section>
 
+    <section class="segment-card">
+      <h2 class="section-title">Emandate Progress Overview</h2>
+
+      <div class="mini-controls">
+        <span class="filter-label">Show:</span>
+        <select [(ngModel)]="overviewFilter" (change)="onOverviewFilterChange()">
+          <option *ngFor="let opt of overviewFilterOptions" [value]="opt.value">{{ opt.label }}</option>
+        </select>
+      </div>
+
+      <div class="date-chip-list" *ngIf="overviewFilter === 'custom'">
+        <span
+          class="date-chip select-chip"
+          *ngFor="let d of webinarDates"
+          [class.selected]="customDates.includes(d.date.slice(0,10))"
+          (click)="toggleCustomDate(d.date.slice(0,10))">
+          {{ d.label }}
+        </span>
+      </div>
+
+      <div *ngIf="loadingOverview" class="loading-inline">Loading overview...</div>
+      <div *ngIf="errorOverview" class="error">{{ errorOverview }}</div>
+
+      <ng-container *ngIf="!loadingOverview && !errorOverview && overview as o">
+        <div class="summary-cards">
+          <div class="summary-card">
+            <span class="summary-value">{{ o.totalOwesEmandate }}</span>
+            <span class="summary-label">Total Users That Owe Emandate</span>
+          </div>
+          <div class="summary-card" [class.dimmed]="!o.emandateEraApplies">
+            <span class="summary-value">{{ o.completedPct }}% <span class="summary-raw">({{ o.completed }})</span></span>
+            <span class="summary-label">Initial Process Completion</span>
+          </div>
+          <div class="summary-card clickable" [class.dimmed]="!o.emandateEraApplies" (click)="openOverviewBucketModal('notDone', 'Not At All Processed')">
+            <span class="summary-value">{{ o.notDonePct }}% <span class="summary-raw">({{ o.notDone }})</span></span>
+            <span class="summary-label">Not At All Processed</span>
+          </div>
+          <div class="summary-card clickable" [class.dimmed]="!o.emandateEraApplies" (click)="openOverviewBucketModal('cancelled', 'Emandate Cancelled')">
+            <span class="summary-value">{{ o.cancelledPct }}%</span>
+            <span class="summary-label">Cancelled</span>
+          </div>
+          <div class="summary-card clickable" [class.dimmed]="!o.emandateEraApplies" (click)="openOverviewBucketModal('halted', 'Halted')" title="Same Halted signal as below — proxy for a failed auto-debit, not a confirmed insufficient-funds reason.">
+            <span class="summary-value">{{ o.haltedPct }}%</span>
+            <span class="summary-label">Halted <span class="info-dot">ℹ️</span></span>
+          </div>
+        </div>
+        <p class="section-note era-note" *ngIf="!o.emandateEraApplies">The selected batch(es) predate the e-mandate process — these cards don't apply.</p>
+
+        <div class="overview-charts">
+          <div class="overview-chart-panel">
+            <h3>Initial Process Completion %</h3>
+            <app-chart [data]="initialCompletionChartData" [type]="'bar'" [title]="'Completion %'"></app-chart>
+          </div>
+          <div class="overview-chart-panel">
+            <h3>Full Payment (2 &amp; 3) Completion %</h3>
+            <app-chart [data]="fullPaymentChartData" [type]="'bar'" [title]="'Completion %'"></app-chart>
+          </div>
+        </div>
+      </ng-container>
+    </section>
+
     <section class="segment-card table-section">
       <h2 class="section-title">
         Payment &amp; Emandate Tracking
@@ -209,6 +270,44 @@
           </table>
         </div>
         <p class="no-data" *ngIf="bucketModalRows.length === 0">No users in this bucket.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" *ngIf="showOverviewBucketModal" (click)="closeOverviewBucketModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ overviewBucketTitle }} ({{ overviewBucketUsers.length }})</h2>
+        <button class="btn-close" (click)="closeOverviewBucketModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll" *ngIf="overviewBucketUsers.length > 0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Webinar Date</th>
+                <th class="col-center">Payments Done</th>
+                <th class="col-center">Full Completion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let u of overviewBucketUsers">
+                <td>{{ u.name }}</td>
+                <td>{{ u.phone }}</td>
+                <td>{{ dateLabelFor(u.batchDate) }}</td>
+                <td class="col-center">{{ u.paymentDoneCount }} / 2</td>
+                <td class="col-center">
+                  <span class="badge" [class.badge-green]="u.settled" [class.badge-grey]="!u.settled">
+                    {{ u.settled ? 'Yes' : 'No' }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="no-data" *ngIf="overviewBucketUsers.length === 0">No users in this bucket.</p>
       </div>
     </div>
   </div>

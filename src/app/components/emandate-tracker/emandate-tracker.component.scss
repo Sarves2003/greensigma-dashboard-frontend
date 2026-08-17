@@ -141,6 +141,22 @@
   border-radius: 999px;
   font-size: 0.78rem;
   color: #374151;
+
+  &.select-chip {
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: var(--primary-color);
+    }
+
+    &.selected {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      color: white;
+    }
+  }
 }
 
 .date-chip-remove {
@@ -243,6 +259,27 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.85rem;
+}
+
+.overview-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.overview-chart-panel {
+  background: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+  padding: 1rem;
+
+  h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.85rem;
+    color: #374151;
+    text-align: center;
+  }
 }
 
 .summary-card {
