@@ -8,7 +8,7 @@ import { APIResponse, KPIResponse, ChartDataPoint, User, PaginatedResponse } fro
 })
 export class ApiService {
   // private baseUrl = 'http://localhost:5000/api';
-  private baseUrl = 'https://greensigma-dashboard-backend.onrender.com/api';
+  private baseUrl = 'https://greensigma-dashboard-backend-git-322775398411.us-central1.run.app/api';
 
 
   constructor(private http: HttpClient) {}
