@@ -110,13 +110,45 @@
         <span class="summary-value">₹{{ totals.idleCash | number: '1.0-0' }}</span>
         <span class="summary-sub">Sitting uninvested right now — click for detail</span>
       </div>
-      <div class="summary-card hero-card clickable" (click)="openSipModal()">
+      <div class="summary-card hero-card" title="Total SIP added in the selected period, from every portfolio regardless of when it was created — see the month-by-month breakdown below.">
         <span class="summary-icon">🔄</span>
-        <span class="summary-label">SIP Investment</span>
-        <span class="summary-value">₹{{ totals.sipInPeriod | number: '1.0-0' }} <span class="summary-fraction">({{ totals.sipCountInPeriod }})</span></span>
-        <span class="summary-sub" *ngIf="!createdFrom && !createdTo && !updatedFrom && !updatedTo; else sipSub">No date filter set — showing all-time. Click for detail</span>
-        <ng-template #sipSub><span class="summary-sub">Click for detail</span></ng-template>
+        <span class="summary-label">Total SIP Added</span>
+        <span class="summary-value">₹{{ totalMonthlySipAmount | number: '1.0-0' }} <span class="summary-fraction">({{ totalMonthlySipCount }})</span></span>
+        <span class="summary-sub" *ngIf="monthlySipBreakdown.length > 0; else noSip">See monthly breakdown below</span>
+        <ng-template #noSip><span class="summary-sub">No SIP activity found</span></ng-template>
       </div>
+    </div>
+
+    <!-- Monthly SIP breakdown — Total AUM Deployed above only counts SIP from portfolios CREATED
+         in the selected window. This is the other half: true SIP added per calendar month from
+         every portfolio, regardless of when it was created. The old portfolio-creation-scoped SIP
+         Investment figure (with its per-client detail modal) now lives below the table, since it's
+         a narrower, secondary number next to the true monthly total above. -->
+    <div class="segment-card monthly-sip-card" *ngIf="monthlySipBreakdown.length > 0">
+      <h3>Monthly SIP Added</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th class="col-num">SIP Count</th>
+            <th class="col-num">SIP Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of monthlySipBreakdown">
+            <td>{{ row.monthLabel }}</td>
+            <td class="col-num">{{ row.count }}</td>
+            <td class="col-num">₹{{ row.amount | number: '1.0-0' }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="sip-scoped-row clickable-row" (click)="openSipModal()" title="Click for per-client detail">
+            <td>Of which, from portfolios created in this window</td>
+            <td class="col-num">{{ totals.sipCountInPeriod }}</td>
+            <td class="col-num">₹{{ totals.sipInPeriod | number: '1.0-0' }}</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
 
     <!-- Summary Row 2: performance -->

@@ -168,6 +168,18 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
   activePortfolioCount = 0;
   activePortfolioPct = 0;
 
+  // True monthly SIP inflow, irrespective of which portfolio it came from or when that portfolio
+  // was created — see computeMonthlySipBreakdown() for why this needs its own, unfiltered pass.
+  monthlySipBreakdown: { monthLabel: string; amount: number; count: number }[] = [];
+
+  get totalMonthlySipAmount(): number {
+    return this.monthlySipBreakdown.reduce((sum, r) => sum + r.amount, 0);
+  }
+
+  get totalMonthlySipCount(): number {
+    return this.monthlySipBreakdown.reduce((sum, r) => sum + r.count, 0);
+  }
+
   private destroy$ = new Subject<void>();
 
   constructor(private apiService: ApiService, public authService: AuthService) {}
@@ -296,6 +308,7 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     this.computeWinnerLoser();
     this.computeHistogram();
     this.computeActivePortfolios();
+    this.computeMonthlySipBreakdown();
     this.currentPage = 1;
     this.updatePagination();
   }
@@ -373,6 +386,87 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
       p.sipAmountInPeriod = inPeriodEvents.reduce((sum, e) => sum + e.amount, 0);
 
       p.aumDeployed = p.investmentCapital !== null ? p.investmentCapital + p.sipAmountInPeriod : p.investedValue;
+    }
+  }
+
+  // "SIP Investment" above is deliberately scoped to portfolios CREATED in the selected window
+  // (per applySortAndFilter's date filter on p.createdAt) — a portfolio created 2-3 months earlier
+  // that added a SIP this month is invisible there. This is the other half of the picture: the true
+  // total SIP amount added in each calendar month, from every portfolio regardless of when it was
+  // created. Search / Portfolio Type / exclude-inactive still apply (legitimate scoping), but the
+  // Created At / Updated At range is applied to each SIP EVENT's own date, not to the portfolio.
+  private computeMonthlySipBreakdown() {
+    this.monthlySipBreakdown = [];
+
+    let scoped = [...this.portfolios];
+
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase();
+      scoped = scoped.filter(
+        (p) => p.userId?.toLowerCase().includes(query) || p.portfolioName?.toLowerCase().includes(query)
+      );
+    }
+    if (this.portfolioTypeFilter === 'automated') {
+      scoped = scoped.filter((p) => p.fromBacktest);
+    } else if (this.portfolioTypeFilter === 'manual') {
+      scoped = scoped.filter((p) => !p.fromBacktest);
+    }
+    if (this.excludeInactive) {
+      scoped = scoped.filter((p) => !this.isInactive(p));
+    }
+
+    const byMonth = new Map<string, { amount: number; count: number }>();
+    for (const p of scoped) {
+      for (const e of p.sipEvents) {
+        const time = new Date(e.date).getTime();
+        if (!this.isTimeInRange(time, this.createdFrom, this.createdTo)) continue;
+        if (!this.isTimeInRange(time, this.updatedFrom, this.updatedTo)) continue;
+
+        const d = new Date(e.date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const bucket = byMonth.get(key) || { amount: 0, count: 0 };
+        bucket.amount += e.amount;
+        bucket.count += 1;
+        byMonth.set(key, bucket);
+      }
+    }
+
+    if (this.createdFrom && this.createdTo) {
+      // Explicit range: enumerate every month it spans, so a month with zero SIP activity still
+      // shows as a 0 row instead of silently disappearing from the table.
+      const start = new Date(this.createdFrom);
+      const end = new Date(this.createdTo);
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      const endCursor = new Date(end.getFullYear(), end.getMonth(), 1);
+
+      const rows: { monthLabel: string; amount: number; count: number }[] = [];
+      while (cursor.getTime() <= endCursor.getTime()) {
+        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+        const bucket = byMonth.get(key) || { amount: 0, count: 0 };
+        rows.push({
+          monthLabel: cursor.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+          amount: bucket.amount,
+          count: bucket.count,
+        });
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+      this.monthlySipBreakdown = rows;
+    } else {
+      // No date range set — same "no filter = show everything" convention as every other card on
+      // this page (Total AUM Deployed, Total Idle Cash, etc. all show all-time totals by default).
+      // There's no bounded window to enumerate zero-SIP months from, so just list every month that
+      // actually has activity, oldest first.
+      this.monthlySipBreakdown = [...byMonth.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, bucket]) => {
+          const [year, month] = key.split('-').map(Number);
+          const d = new Date(year, month - 1, 1);
+          return {
+            monthLabel: d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+            amount: bucket.amount,
+            count: bucket.count,
+          };
+        });
     }
   }
 
