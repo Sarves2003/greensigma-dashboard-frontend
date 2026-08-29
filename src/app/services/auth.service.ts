@@ -20,7 +20,7 @@ const PERMISSIONS_KEY = 'gs_dashboard_permissions';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   // private baseUrl = 'http://localhost:5000/api';
-  private baseUrl = 'https://greensigma-dashboard-backend.onrender.com/api';
+  private baseUrl = 'https://greensigma-dashboard-backend-git-322775398411.us-central1.run.app/api';
 
   private userSignal = signal<DashboardAuthUser | null>(this.readUser());
   private permissionsSignal = signal<Set<string>>(new Set(this.readPermissions()));

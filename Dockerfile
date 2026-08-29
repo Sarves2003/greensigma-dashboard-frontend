@@ -23,7 +23,7 @@ COPY --from=builder /app/dist/sigma-dashboard /usr/share/nginx/html
 # Configure nginx
 COPY nginx.conf /etc/nginx/nginx.conf
 
-EXPOSE 80
+EXPOSE 8080
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
