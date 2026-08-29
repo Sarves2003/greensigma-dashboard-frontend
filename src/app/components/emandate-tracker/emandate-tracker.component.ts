@@ -15,7 +15,11 @@ interface WebinarDate {
 }
 
 type PaymentStatus = 'Full Paid' | 'Emandate' | 'Refunded' | 'Cancelled' | 'Pending';
-type MandateState = 'active' | 'cancelled' | 'halted' | 'not_done' | 'not_applicable';
+
+// "Current health" of a person's most-relevant mandate — independent of whether they completed the
+// initial process or captured payment 2/3 historically. not_applicable = Full Paid, no emandate
+// needed at all.
+type MandateState = 'active' | 'halted' | 'cancelled' | 'not_started' | 'not_applicable';
 
 interface EmandateDayPayment {
   date: string | null;
@@ -29,22 +33,38 @@ interface EmandateRow {
   paymentStatus: PaymentStatus;
   payment2: EmandateDayPayment | null;
   payment3: EmandateDayPayment | null;
-  mandateState: MandateState;
-  remark: string;
+  initialDone: boolean;
+  payment2Done: boolean;
+  payment3Done: boolean;
+  currentState: MandateState;
   settled: boolean;
   paymentDoneCount: number;
+  remark: string;
 }
 
 interface EmandateSummary {
   totalInitialPaid: number;
   totalFullPaid: number;
-  remaining: number;
-  completed: number;
-  completedPct: number;
-  notDone: number;
-  cancelled: number;
-  halted: number;
+  totalRefunded: number;
+  owesEmandate: number;
+  initialDoneCount: number;
+  initialDonePct: number | null;
+  payment2DoneCount: number;
+  payment2DonePct: number | null;
+  payment3DoneCount: number;
+  payment3DonePct: number | null;
+  notDoneAtAllCount: number;
+  notDoneAtAllPct: number | null;
+  cancelledCount: number;
+  cancelledPct: number | null;
+  haltedCount: number;
+  haltedPct: number | null;
+  overallConversionPct: number | null;
   emandateEraApplies: boolean;
+}
+
+interface EmandateBatchTableRow extends EmandateSummary {
+  batchDate: string;
 }
 
 interface OverviewBucketUser {
@@ -56,23 +76,35 @@ interface OverviewBucketUser {
 }
 
 interface EmandateOverview {
-  totalOwesEmandate: number;
-  completed: number;
-  completedPct: number;
-  notDone: number;
-  notDonePct: number;
-  cancelled: number;
-  cancelledPct: number;
-  halted: number;
-  haltedPct: number;
+  owesEmandate: number;
+  initialDoneCount: number;
+  initialDonePct: number | null;
+  payment2DoneCount: number;
+  payment2DonePct: number | null;
+  payment3DoneCount: number;
+  payment3DonePct: number | null;
+  notDoneAtAllCount: number;
+  notDoneAtAllPct: number | null;
+  cancelledCount: number;
+  cancelledPct: number | null;
+  haltedCount: number;
+  haltedPct: number | null;
   emandateEraApplies: boolean;
-  buckets: { notDone: OverviewBucketUser[]; cancelled: OverviewBucketUser[]; halted: OverviewBucketUser[] };
+  buckets: { notDoneAtAll: OverviewBucketUser[]; cancelled: OverviewBucketUser[]; halted: OverviewBucketUser[] };
   chart: { batchDate: string; initialCompletionPct: number | null; fullPaymentCompletionPct: number | null }[];
 }
 
 type SortKey = 'name' | 'phone' | 'paymentStatus';
 type OverviewFilterMode = 'this' | 'previous' | 'last2' | 'custom';
-type OverviewBucketKey = 'notDone' | 'cancelled' | 'halted';
+type OverviewBucketKey = 'notDoneAtAll' | 'cancelled' | 'halted';
+
+// Cascading targets confirmed by the business: initial setup should clear 90%, payment 2 should
+// clear 80%, payment 3 (final) should clear 70% — each measured against the same "owes emandate"
+// base, so the numbers are expected to shrink stage over stage. The "bad" metrics (cancelled/
+// halted/not-done/refund) don't have an explicit target, so 10%/25% are reasonable default
+// cutoffs — adjust if the business has real numbers for these.
+const BENCHMARKS = { initial: 90, payment2: 80, payment3: 70, overall: 70 };
+const BAD_METRIC_THRESHOLDS = { warn: 10, bad: 25 };
 
 @Component({
   selector: 'app-emandate-tracker',
@@ -84,6 +116,7 @@ type OverviewBucketKey = 'notDone' | 'cancelled' | 'halted';
 export class EmandateTrackerComponent implements OnInit, OnDestroy {
   permissions = PERMISSIONS;
   paymentStatusOptions: PaymentStatus[] = ['Full Paid', 'Emandate', 'Refunded', 'Cancelled', 'Pending'];
+  benchmarks = BENCHMARKS;
 
   webinarDates: WebinarDate[] = [];
   loadingDates = true;
@@ -105,8 +138,8 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
   mandateFilter: MandateState | 'all' = 'all';
   mandateFilterOptions: { value: MandateState | 'all'; label: string }[] = [
     { value: 'all', label: 'All' },
-    { value: 'active', label: 'Completed' },
-    { value: 'not_done', label: 'Not At All Done' },
+    { value: 'active', label: 'Active' },
+    { value: 'not_started', label: 'Not At All Done' },
     { value: 'cancelled', label: 'Cancelled' },
     { value: 'halted', label: 'Halted' },
   ];
@@ -127,6 +160,13 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
   bucketModalTitle = '';
   bucketModalRows: EmandateRow[] = [];
 
+  // Defined once as bound instance properties (not inline template lambdas) so they're stable
+  // references across change-detection cycles, per the established Angular perf pattern in this
+  // component set — a new closure per CD tick would be wasteful for something only used on click.
+  rowNotDoneAtAll = (r: EmandateRow) => r.currentState !== 'not_applicable' && !r.initialDone;
+  rowCancelled = (r: EmandateRow) => r.currentState === 'cancelled';
+  rowHalted = (r: EmandateRow) => r.currentState === 'halted';
+
   overviewFilter: OverviewFilterMode = 'this';
   overviewFilterOptions: { value: OverviewFilterMode; label: string }[] = [
     { value: 'this', label: 'This Batch' },
@@ -145,6 +185,10 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
   showOverviewBucketModal = false;
   overviewBucketTitle = '';
   overviewBucketUsers: OverviewBucketUser[] = [];
+
+  batchTableRows: EmandateBatchTableRow[] = [];
+  loadingBatchTable = false;
+  errorBatchTable: string | null = null;
 
   private destroy$ = new Subject<void>();
 
@@ -259,8 +303,8 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
       });
   }
 
-  // Sorted oldest-to-newest so "Previous"/"Last 2" and the chart both read left-to-right
-  // chronologically.
+  // Sorted oldest-to-newest so "Previous"/"Last 2", the chart, and the batch table all read
+  // left-to-right chronologically.
   private get sortedWebinarDates(): WebinarDate[] {
     return [...this.webinarDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
@@ -295,6 +339,7 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
       this.overview = null;
       this.initialCompletionChartData = [];
       this.fullPaymentChartData = [];
+      this.batchTableRows = [];
     }
   }
 
@@ -305,12 +350,16 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
     if (this.overviewFilter === 'custom') this.loadOverview();
   }
 
+  // Loads both the overview cards/charts and the benchmark table for the same batch scope (this/
+  // previous/last-2/custom) — they always describe the same set of batches, so they're driven by
+  // one date-key resolution instead of two separate ones that could drift out of sync.
   loadOverview() {
     const dateKeys = this.resolveOverviewDateKeys();
     if (dateKeys.length === 0) {
       this.overview = null;
       this.initialCompletionChartData = [];
       this.fullPaymentChartData = [];
+      this.batchTableRows = [];
       this.errorOverview = this.overviewFilter === 'previous' || this.overviewFilter === 'last2'
         ? 'No earlier batch exists before the selected one.'
         : null;
@@ -346,6 +395,8 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
           this.loadingOverview = false;
         },
       });
+
+    this.loadBatchTable(dateKeys);
   }
 
   openOverviewBucketModal(bucket: OverviewBucketKey, title: string) {
@@ -357,6 +408,46 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
 
   closeOverviewBucketModal() {
     this.showOverviewBucketModal = false;
+  }
+
+  private loadBatchTable(dateKeys: string[]) {
+    this.loadingBatchTable = true;
+    this.errorBatchTable = null;
+
+    this.apiService
+      .getEmandateBatchTable(dateKeys)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.batchTableRows = response.data;
+          } else {
+            this.errorBatchTable = 'Failed to load batch table';
+          }
+          this.loadingBatchTable = false;
+        },
+        error: (error) => {
+          this.errorBatchTable = 'Failed to load batch table';
+          console.error(error);
+          this.loadingBatchTable = false;
+        },
+      });
+  }
+
+  // 'good' metrics (higher is better) compare against a benchmark; 'bad' metrics (lower is better,
+  // e.g. cancelled/halted/refund/not-done) use inverted thresholds. null (no one owed emandate for
+  // that batch, so the rate is undefined) gets no heat class at all.
+  heatClass(value: number | null, kind: 'good' | 'bad', benchmark?: number): string {
+    if (value === null) return '';
+    if (kind === 'good') {
+      const b = benchmark ?? 0;
+      if (value >= b) return 'heat-good';
+      if (value >= b - 10) return 'heat-warn';
+      return 'heat-bad';
+    }
+    if (value <= BAD_METRIC_THRESHOLDS.warn) return 'heat-good';
+    if (value <= BAD_METRIC_THRESHOLDS.bad) return 'heat-warn';
+    return 'heat-bad';
   }
 
   onSort(key: SortKey) {
@@ -402,7 +493,7 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
     let filtered = this.rows;
 
     if (this.mandateFilter !== 'all') {
-      filtered = filtered.filter((r) => r.mandateState === this.mandateFilter);
+      filtered = filtered.filter((r) => r.currentState === this.mandateFilter);
     }
 
     const query = this.searchQuery.trim().toLowerCase();
@@ -436,9 +527,9 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
     return Math.min(this.currentPage * this.pageSize, this.filteredRows.length);
   }
 
-  openBucketModal(bucket: MandateState, title: string) {
+  openBucketModal(predicate: (r: EmandateRow) => boolean, title: string) {
     this.bucketModalTitle = title;
-    this.bucketModalRows = this.rows.filter((r) => r.mandateState === bucket);
+    this.bucketModalRows = this.rows.filter(predicate);
     this.showBucketModal = true;
   }
 
@@ -479,12 +570,12 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
       });
   }
 
-  mandateStateLabel(state: MandateState): string {
+  currentStateLabel(state: MandateState): string {
     switch (state) {
-      case 'active': return 'Completed';
+      case 'active': return 'Active';
       case 'cancelled': return 'Cancelled';
       case 'halted': return 'Halted';
-      case 'not_done': return 'Not Done';
+      case 'not_started': return 'Not Started';
       default: return '—';
     }
   }

@@ -21,6 +21,17 @@ interface DashboardUserView {
   lastLoginAt?: string;
 }
 
+interface LoginLogEntry {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  event: 'login' | 'logout';
+  timestamp: string;
+  ip: string | null;
+  userAgent: string | null;
+}
+
 @Component({
   selector: 'app-admin-management',
   standalone: true,
@@ -46,6 +57,10 @@ export class AdminManagementComponent implements OnInit {
   private overrideChecked = new Set<string>();
   private overrideRoleDefaults = new Set<string>();
   savingOverrides = false;
+
+  loginHistory: LoginLogEntry[] = [];
+  loadingLoginHistory = true;
+  loginHistoryUserFilter = '';
 
   constructor(private apiService: ApiService) {}
 
@@ -85,6 +100,29 @@ export class AdminManagementComponent implements OnInit {
     });
 
     this.reloadUsers();
+    this.loadLoginHistory();
+  }
+
+  loadLoginHistory(): void {
+    this.loadingLoginHistory = true;
+    this.apiService.getLoginHistory().subscribe({
+      next: (response) => {
+        if (response.success && response.data) this.loginHistory = response.data;
+        this.loadingLoginHistory = false;
+      },
+      error: () => {
+        this.error = 'Failed to load login history';
+        this.loadingLoginHistory = false;
+      },
+    });
+  }
+
+  get filteredLoginHistory(): LoginLogEntry[] {
+    const needle = this.loginHistoryUserFilter.trim().toLowerCase();
+    if (!needle) return this.loginHistory;
+    return this.loginHistory.filter(
+      (l) => l.name.toLowerCase().includes(needle) || l.email.toLowerCase().includes(needle)
+    );
   }
 
   reloadUsers(): void {

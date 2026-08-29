@@ -2,11 +2,7 @@
   <div class="dashboard-container">
     <aside class="dashboard-sidebar">
       <div class="sidebar-header">
-        <div class="logo-mark">📊</div>
-        <div class="logo-text">
-          <h1 class="logo">Sigma</h1>
-          <p class="subtitle">Scanner</p>
-        </div>
+        <img src="assets/sigma-scanner-logo.png" alt="Sigma Scanner" class="logo-img" />
       </div>
 
       <nav class="sidebar-nav">
@@ -19,6 +15,8 @@
           <span class="icon">🧮</span>
           <span class="label">Product Metrics</span>
         </a>
+        <!-- Hidden for now — not useful currently. Route/permission left intact, just unlinked
+             from the nav; delete this comment block to bring it back.
         <a
           *ngIf="authService.hasPermission(permissions.portfolio)"
           routerLink="/portfolio"
@@ -28,6 +26,7 @@
           <span class="icon">💼</span>
           <span class="label">Portfolio</span>
         </a>
+        -->
         <a
           *ngIf="authService.hasPermission(permissions.unrealizedPnl)"
           routerLink="/unrealized-pnl"

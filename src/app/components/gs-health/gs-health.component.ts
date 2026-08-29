@@ -8,68 +8,58 @@ import { AuthService } from '../../services/auth.service';
 import { PERMISSIONS } from '../../config/permissions';
 import { EchartBarComponent } from '../shared/echart-bar/echart-bar.component';
 import { EchartLineComponent } from '../shared/echart-line/echart-line.component';
+import { MetricCategoryCardComponent, MetricBreakdown, MetricCategoryConfig } from '../shared/metric-category-card/metric-category-card.component';
 
-interface MetricSlice {
-  label: string | null;
-  value: number | null;
-}
-
-interface MetricBreakdown {
-  currentMonth: MetricSlice;
-  lastMonth: MetricSlice;
-  currentQuarter: MetricSlice;
-  lastQuarter: MetricSlice;
-  currentYearAvgPerMonth: MetricSlice;
-  previousYearAvgPerMonth: MetricSlice;
-  currentYearTotal: MetricSlice;
-  previousYearTotal: MetricSlice;
-  currentYearBest: MetricSlice;
-  previousYearBest: MetricSlice;
-}
-
-interface MetricCategoryConfig {
-  key: 'revenue' | 'cac' | 'paidUsers' | 'adsSpent' | 'leads' | 'cpp';
-  label: string;
-  icon: string;
-  prefix: string;
-  decimals: string;
-  isAvg: boolean;
-  lowerIsBetter: boolean;
-  accent: string;
-  accentBg: string;
-}
-
-interface Delta {
-  pct: number;
-  direction: 'up' | 'down' | 'flat';
-  sentiment: 'good' | 'bad' | 'flat';
-}
+type ChannelKey = 'webinar' | 'leadform';
+type SubTab = 'overview' | ChannelKey;
 
 @Component({
   selector: 'app-gs-health',
   standalone: true,
-  imports: [CommonModule, FormsModule, EchartBarComponent, EchartLineComponent],
+  imports: [CommonModule, FormsModule, EchartBarComponent, EchartLineComponent, MetricCategoryCardComponent],
   templateUrl: './gs-health.component.html',
   styleUrls: ['./gs-health.component.scss'],
 })
 export class GsHealthComponent implements OnInit, OnDestroy {
   permissions = PERMISSIONS;
 
-  // ============ Segment 1: Key Metrics — anchored to the latest sheet row, no filter ============
-  metricCategories: MetricCategoryConfig[] = [
+  activeSubTab: SubTab = 'overview';
+
+  // ============ Overview: Key Metrics — anchored to the latest sheet row, no filter ============
+  overviewCategories: MetricCategoryConfig[] = [
     { key: 'revenue', label: 'Revenue', icon: '💰', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#16a34a', accentBg: '#eef7f0' },
-    { key: 'cac', label: 'CAC', icon: '📐', prefix: '₹', decimals: '1.0-2', isAvg: true, lowerIsBetter: true, accent: '#d97706', accentBg: '#fef6e7' },
+    { key: 'cac', label: 'Overall CAC', icon: '📐', prefix: '₹', decimals: '1.0-2', isAvg: true, lowerIsBetter: true, accent: '#d97706', accentBg: '#fef6e7' },
     { key: 'paidUsers', label: 'Paid Users', icon: '👤', prefix: '', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#0369a1', accentBg: '#eff6ff' },
     { key: 'adsSpent', label: 'Ads Spent', icon: '📣', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: true, accent: '#dc2626', accentBg: '#fef2f2' },
-    { key: 'leads', label: 'Webinar Leads', icon: '🧲', prefix: '', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#7c3aed', accentBg: '#f5f3ff' },
-    { key: 'cpp', label: 'Webinar CPP', icon: '📣', prefix: '₹', decimals: '1.0-2', isAvg: true, lowerIsBetter: true, accent: '#0891b2', accentBg: '#ecfeff' },
+    { key: 'leads', label: 'Leads Registered', icon: '🧲', prefix: '', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#7c3aed', accentBg: '#f5f3ff' },
+    { key: 'cpp', label: 'Webinar CPL', icon: '🎯', prefix: '₹', decimals: '1.0-2', isAvg: true, lowerIsBetter: true, accent: '#0891b2', accentBg: '#ecfeff' },
+  ];
+
+  // ============ Webinar / Lead Form channel tabs — same shape, channel-specific columns ============
+  channelCategories: MetricCategoryConfig[] = [
+    { key: 'leads', label: 'Leads Registered', icon: '🧲', prefix: '', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#7c3aed', accentBg: '#f5f3ff' },
+    { key: 'adsSpent', label: 'Amount Spent', icon: '📣', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: true, accent: '#dc2626', accentBg: '#fef2f2' },
+    { key: 'cac', label: 'CAC', icon: '📐', prefix: '₹', decimals: '1.0-2', isAvg: true, lowerIsBetter: true, accent: '#d97706', accentBg: '#fef6e7' },
+    { key: 'revenue', label: 'Revenue', icon: '💰', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#16a34a', accentBg: '#eef7f0' },
+    { key: 'convertedUsers', label: 'Paid Users', icon: '👤', prefix: '', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#0369a1', accentBg: '#eff6ff' },
+    { key: 'cpl', label: 'CPL', icon: '🎯', prefix: '₹', decimals: '1.0-2', isAvg: true, lowerIsBetter: true, accent: '#0891b2', accentBg: '#ecfeff' },
+    { key: 'netRoas', label: 'Net ROAS', icon: '📈', prefix: '', decimals: '1.0-2', isAvg: true, lowerIsBetter: false, accent: '#be185d', accentBg: '#fdf2f8' },
   ];
 
   keyMetrics: Record<string, MetricBreakdown> = {};
   loadingKeyMetrics = true;
   keyMetricsError: string | null = null;
 
-  // ============ Segment 2: Trends — has its own local filter, scoped only to this segment ============
+  channelMetricsCache: Partial<Record<ChannelKey, Record<string, MetricBreakdown>>> = {};
+  loadingChannelMetrics = false;
+  channelMetricsError: string | null = null;
+
+  get activeChannelMetrics(): Record<string, MetricBreakdown> {
+    if (this.activeSubTab === 'overview') return {};
+    return this.channelMetricsCache[this.activeSubTab] || {};
+  }
+
+  // ============ Trends — has its own local filter, scoped only to this segment ============
   loading = true;
   error: string | null = null;
 
@@ -104,7 +94,7 @@ export class GsHealthComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ============ Segment 1 ============
+  // ============ Overview ============
   loadKeyMetrics() {
     this.loadingKeyMetrics = true;
     this.keyMetricsError = null;
@@ -129,24 +119,39 @@ export class GsHealthComponent implements OnInit, OnDestroy {
       });
   }
 
-  getDelta(current: number | null | undefined, previous: number | null | undefined, lowerIsBetter: boolean): Delta | null {
-    if (current === null || current === undefined || previous === null || previous === undefined || previous === 0) {
-      return null;
+  // ============ Channel tabs ============
+  setSubTab(tab: SubTab) {
+    this.activeSubTab = tab;
+    if (tab !== 'overview' && !this.channelMetricsCache[tab]) {
+      this.loadChannelMetrics(tab);
     }
-
-    const pct = ((current - previous) / Math.abs(previous)) * 100;
-    const direction: Delta['direction'] = pct > 0.5 ? 'up' : pct < -0.5 ? 'down' : 'flat';
-
-    let sentiment: Delta['sentiment'] = 'flat';
-    if (direction !== 'flat') {
-      const isIncrease = direction === 'up';
-      sentiment = isIncrease === !lowerIsBetter ? 'good' : 'bad';
-    }
-
-    return { pct: Math.abs(parseFloat(pct.toFixed(1))), direction, sentiment };
   }
 
-  // ============ Segment 2 ============
+  private loadChannelMetrics(channel: ChannelKey) {
+    this.loadingChannelMetrics = true;
+    this.channelMetricsError = null;
+
+    this.apiService
+      .getGsHealthChannelMetrics(channel)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.channelMetricsCache[channel] = response.data;
+          } else {
+            this.channelMetricsError = 'No data available yet.';
+          }
+          this.loadingChannelMetrics = false;
+        },
+        error: (err) => {
+          this.channelMetricsError = 'Failed to load channel metrics';
+          console.error(err);
+          this.loadingChannelMetrics = false;
+        },
+      });
+  }
+
+  // ============ Trends ============
   loadTrends() {
     this.loading = true;
     this.error = null;

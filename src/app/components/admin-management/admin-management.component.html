@@ -98,6 +98,46 @@
         </table>
       </div>
     </section>
+
+    <!-- ============ Login History ============ -->
+    <section class="panel">
+      <h2>Login History</h2>
+      <p class="panel-hint">Owner-only audit trail of dashboard sign-ins and sign-outs. Logout entries only capture a deliberate "Sign Out" click, not tab closes or token expiry.</p>
+
+      <div class="form-row" style="margin-bottom: 0.75rem;">
+        <input type="text" placeholder="Filter by name or email…" [(ngModel)]="loginHistoryUserFilter" name="loginHistoryUserFilter" />
+      </div>
+
+      <div class="loading" *ngIf="loadingLoginHistory">Loading login history…</div>
+
+      <table class="users-table" *ngIf="!loadingLoginHistory">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Event</th>
+            <th>Timestamp</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of filteredLoginHistory">
+            <td>{{ entry.name }}</td>
+            <td>{{ entry.email }}</td>
+            <td>{{ roleLabels[entry.role] || entry.role }}</td>
+            <td>
+              <span class="status-pill" [class.active]="entry.event === 'login'">{{ entry.event === 'login' ? 'Login' : 'Logout' }}</span>
+            </td>
+            <td class="muted">{{ entry.timestamp | date: 'medium' }}</td>
+            <td class="muted">{{ entry.ip || '-' }}</td>
+          </tr>
+          <tr *ngIf="!filteredLoginHistory.length">
+            <td colspan="6" class="muted">No login history yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </ng-container>
 
   <div class="loading" *ngIf="loading">Loading admin data…</div>

@@ -30,6 +30,9 @@
       (click)="setSubTab('assessment')">
       <span class="subtab-icon">📋</span> Assessment
     </button>
+    <button type="button" class="subtab-btn csv-download-btn" (click)="downloadCsv()">
+      <span class="subtab-icon">⬇️</span> Download CSV
+    </button>
   </div>
 
   <!-- ============ MAIN TAB ============ -->
@@ -112,13 +115,23 @@
               <th (click)="onMainSort('lastLoginAt')" [class.active]="mainSortBy === 'lastLoginAt'">Last Login <span *ngIf="mainSortBy === 'lastLoginAt'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th (click)="onMainSort('referalCode')" [class.active]="mainSortBy === 'referalCode'">Referral Code <span *ngIf="mainSortBy === 'referalCode'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="col-num" (click)="onMainSort('demoCallCount')" [class.active]="mainSortBy === 'demoCallCount'">Demo Calls <span *ngIf="mainSortBy === 'demoCallCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
-              <th class="col-num" (click)="onMainSort('assessmentCount')" [class.active]="mainSortBy === 'assessmentCount'">Assessments <span *ngIf="mainSortBy === 'assessmentCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('assessmentCount')" [class.active]="mainSortBy === 'assessmentCount'">Assessment <span *ngIf="mainSortBy === 'assessmentCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="col-num" (click)="onMainSort('btCount')" [class.active]="mainSortBy === 'btCount'">BT Count <span *ngIf="mainSortBy === 'btCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('liveScoringCount')" [class.active]="mainSortBy === 'liveScoringCount'" title="Stock Live Scoring">Live Scoring <span *ngIf="mainSortBy === 'liveScoringCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('etfLiveScoringCount')" [class.active]="mainSortBy === 'etfLiveScoringCount'">ETF Live Scoring <span *ngIf="mainSortBy === 'etfLiveScoringCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('etfBacktestCount')" [class.active]="mainSortBy === 'etfBacktestCount'">ETF Backtest <span *ngIf="mainSortBy === 'etfBacktestCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('intradayCount')" [class.active]="mainSortBy === 'intradayCount'">Intraday <span *ngIf="mainSortBy === 'intradayCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('portfoliosCreatedCount')" [class.active]="mainSortBy === 'portfoliosCreatedCount'">Portfolios Created <span *ngIf="mainSortBy === 'portfoliosCreatedCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('brokerConnectedCount')" [class.active]="mainSortBy === 'brokerConnectedCount'">Broker Connected <span *ngIf="mainSortBy === 'brokerConnectedCount'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="col-num" (click)="onMainSort('usageScore')" [class.active]="mainSortBy === 'usageScore'">Usage Score <span *ngIf="mainSortBy === 'usageScore'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('intentScore')" [class.active]="mainSortBy === 'intentScore'" title="Based only on demo call booked + assessment completion — not product usage">Intent Score <span *ngIf="mainSortBy === 'intentScore'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-num" (click)="onMainSort('overallScore')" [class.active]="mainSortBy === 'overallScore'" title="Intent Score + Usage Score (capped) — sort by this to prioritize who to nurture first">Overall Score <span *ngIf="mainSortBy === 'overallScore'" class="sort-icon">{{ mainSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="col-center">Status</th>
+              <th>Remarks</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of pagedMainRows">
+            <tr *ngFor="let row of pagedMainRows" class="clickable-row" (click)="openUserDetail(row)">
               <td>{{ row.name }}</td>
               <td>{{ row.mobile }}</td>
               <td>{{ row.email }}</td>
@@ -132,7 +145,25 @@
               <td class="col-num">{{ row.demoCallCount }}</td>
               <td class="col-num">{{ row.assessmentCount }}</td>
               <td class="col-num">{{ row.btCount }}</td>
+              <td class="col-num">{{ row.liveScoringCount }}</td>
+              <td class="col-num">{{ row.etfLiveScoringCount }}</td>
+              <td class="col-num">{{ row.etfBacktestCount }}</td>
+              <td class="col-num">{{ row.intradayCount }}</td>
+              <td class="col-num">{{ row.portfoliosCreatedCount }}</td>
+              <td class="col-num">{{ row.brokerConnectedCount }}</td>
               <td class="col-num usage-score-cell">{{ row.usageScore }}</td>
+              <td class="col-num">{{ row.intentScore }}</td>
+              <td class="col-num usage-score-cell">{{ row.overallScore }}</td>
+              <td class="col-center" (click)="$event.stopPropagation()">
+                <select class="status-select" [ngClass]="statusClass(row.status)" [ngModel]="row.status" (ngModelChange)="onStatusChange(row, $event)">
+                  <option [ngValue]="null">-- Set Status --</option>
+                  <option *ngFor="let s of leadStatusOptions" [ngValue]="s">{{ s }}</option>
+                </select>
+              </td>
+              <td class="remarks-cell" (click)="$event.stopPropagation(); openNotesModal(row)">
+                <span class="remarks-preview" [title]="row.latestNote?.text || ''">{{ row.latestNote?.text || '—' }}</span>
+                <span class="remarks-edit-icon">✏️</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -150,6 +181,143 @@
       </div>
     </section>
   </ng-container>
+
+  <!-- User journey detail modal — sibling of the segment-cards above, never nested inside one
+       (a nested modal here would inherit the card's :hover transform as a new containing block
+       and break position:fixed centering — bit us on Funnel Analysis earlier, not repeating it). -->
+  <div class="modal-overlay" *ngIf="showUserDetailModal" (click)="closeUserDetail()">
+    <div class="modal-content detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ selectedUserDetail?.name || 'User' }} — Full Journey</h2>
+        <button class="btn-close" (click)="closeUserDetail()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="loadingUserDetail" class="loading-inline">Loading user detail...</div>
+        <div *ngIf="errorUserDetail" class="error">{{ errorUserDetail }}</div>
+
+        <ng-container *ngIf="!loadingUserDetail && !errorUserDetail && selectedUserDetail as d">
+          <div class="detail-overview-grid">
+            <div class="detail-overview-item">
+              <span class="detail-overview-label">Type</span>
+              <span class="badge" [class.badge-blue]="d.type === 'Tribe'" [class.badge-green]="d.type === 'Free'" [class.badge-grey]="d.type === 'Webinar'">{{ d.type }}</span>
+            </div>
+            <div class="detail-overview-item">
+              <span class="detail-overview-label">Joined Date</span>
+              <span class="detail-overview-value">{{ toIST(d.signedUpAt) }}</span>
+            </div>
+            <div class="detail-overview-item">
+              <span class="detail-overview-label">Portfolio Deployed (Live)</span>
+              <span class="detail-overview-value">{{ d.portfolioDeployedAt ? toIST(d.portfolioDeployedAt) : 'Not live yet' }}</span>
+            </div>
+            <div class="detail-overview-item">
+              <span class="detail-overview-label">Last Login</span>
+              <span class="detail-overview-value">{{ relativeTime(d.lastLoginAt) }}</span>
+            </div>
+            <div class="detail-overview-item">
+              <span class="detail-overview-label">Referral Code</span>
+              <span class="detail-overview-value">{{ d.referalCode || '-' }}</span>
+            </div>
+            <div class="detail-overview-item">
+              <span class="detail-overview-label">Mobile</span>
+              <span class="detail-overview-value">{{ d.mobile }}</span>
+            </div>
+          </div>
+
+          <div class="detail-scores-row">
+            <div class="detail-score-card">
+              <span class="detail-score-label">Usage Score</span>
+              <span class="detail-score-value">{{ d.usageScore }}</span>
+            </div>
+            <div class="detail-score-card intent">
+              <span class="detail-score-label">Intent Score</span>
+              <span class="detail-score-value">{{ d.intentScore }}</span>
+            </div>
+            <div class="detail-score-card overall">
+              <span class="detail-score-label">Overall Score</span>
+              <span class="detail-score-value">{{ d.overallScore }}</span>
+            </div>
+          </div>
+
+          <h3 class="detail-section-title">Product Usage Breakdown</h3>
+          <div class="detail-feature-grid">
+            <div class="detail-feature-item"><span>Backtest</span><span>{{ d.featureBreakdown.backtest }}</span></div>
+            <div class="detail-feature-item"><span>Live Scoring</span><span>{{ d.featureBreakdown.liveScoring }}</span></div>
+            <div class="detail-feature-item"><span>ETF Live Scoring</span><span>{{ d.featureBreakdown.etfLiveScoring }}</span></div>
+            <div class="detail-feature-item"><span>ETF Backtest</span><span>{{ d.featureBreakdown.etfBacktest }}</span></div>
+            <div class="detail-feature-item"><span>Intraday</span><span>{{ d.featureBreakdown.intraday }}</span></div>
+            <div class="detail-feature-item"><span>Portfolios Created</span><span>{{ d.featureBreakdown.portfoliosCreated }}</span></div>
+            <div class="detail-feature-item"><span>Broker Connected</span><span>{{ d.featureBreakdown.brokerConnected }}</span></div>
+          </div>
+
+          <h3 class="detail-section-title">Demo Calls ({{ d.demoCalls.length }})</h3>
+          <div class="table-scroll" *ngIf="d.demoCalls.length > 0">
+            <table class="data-table">
+              <thead>
+                <tr><th>Preferred Date</th><th>Preferred Time</th><th>Booked At (IST)</th><th>Lead From</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of d.demoCalls">
+                  <td>{{ toIST(c.preferredDate) }}</td>
+                  <td>{{ c.preferredTime || '-' }}</td>
+                  <td>{{ toIST(c.createdAt) }}</td>
+                  <td>{{ c.leadFrom || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="no-data" *ngIf="d.demoCalls.length === 0">No demo calls booked.</p>
+
+          <h3 class="detail-section-title">Assessments ({{ d.assessments.length }})</h3>
+          <div class="assessment-card" *ngFor="let a of d.assessments">
+            <div class="assessment-card-header">
+              <span class="badge" [class.badge-green]="a.status === 'completed'" [class.badge-grey]="a.status !== 'completed'">{{ a.status || '-' }}</span>
+              <span class="assessment-card-meta">
+                <ng-container *ngIf="a.completedAt">Completed {{ toIST(a.completedAt) }} · </ng-container>Lead From: {{ a.leadFrom || '-' }}
+              </span>
+            </div>
+            <div class="assessment-card-body" *ngIf="a.district || a.state || a.occupation || a.investmentExperience || a.portfolioSize || a.challenges.length > 0 || a.otherChallenge">
+              <span *ngIf="a.district || a.state">📍 {{ a.district }}{{ a.district && a.state ? ', ' : '' }}{{ a.state }}</span>
+              <span *ngIf="a.occupation">💼 {{ a.occupation }}</span>
+              <span *ngIf="a.investmentExperience">📈 {{ a.investmentExperience }}</span>
+              <span *ngIf="a.portfolioSize">💰 {{ a.portfolioSize }}</span>
+              <span *ngIf="a.challenges.length > 0">⚠️ {{ a.challenges.join(', ') }}</span>
+              <span *ngIf="a.otherChallenge">📝 {{ a.otherChallenge }}</span>
+            </div>
+          </div>
+          <p class="no-data" *ngIf="d.assessments.length === 0">No assessments started.</p>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remarks/notes modal — sibling of the segment-cards above, same position:fixed containing-
+       block rule as the detail modal above (never nest inside a card with a :hover transform). -->
+  <div class="modal-overlay" *ngIf="showNotesModal" (click)="closeNotesModal()">
+    <div class="modal-content notes-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Remarks — {{ notesModalRow?.name }}</h2>
+        <button class="btn-close" (click)="closeNotesModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="loadingNotes" class="loading-inline">Loading notes...</div>
+        <ng-container *ngIf="!loadingNotes">
+          <div class="notes-list">
+            <div class="note-entry" *ngFor="let n of notesList">
+              <p class="note-text">{{ n.text }}</p>
+              <p class="note-meta">{{ n.byName }} · {{ toIST(n.createdAt) }}</p>
+            </div>
+            <p class="no-data" *ngIf="notesList.length === 0">No remarks yet.</p>
+          </div>
+          <div class="note-add-form">
+            <textarea [(ngModel)]="newNoteText" placeholder="Add a remark…" rows="3" [disabled]="savingNote"></textarea>
+            <button class="primary-btn" (click)="addNote()" [disabled]="savingNote || !newNoteText.trim()">
+              {{ savingNote ? 'Saving…' : 'Add Remark' }}
+            </button>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+  </div>
 
   <!-- ============ DEMO CALL TAB ============ -->
   <ng-container *ngIf="activeSubTab === 'demoCall' && authService.hasPermission(permissions.usageAnalysisDemoCall)">
@@ -210,6 +378,11 @@
           <span class="booking-count-value">{{ demoRepeatBookers.length }}</span>
           <span class="booking-count-label">people booked more than once <ng-container *ngIf="demoRepeatBookers.length > 0">— click to view</ng-container></span>
         </div>
+        <div class="booking-count-card lead-source-card" *ngIf="demoTopLeadSources.length > 0">
+          <span class="booking-count-icon">🧲</span>
+          <span class="booking-count-value lead-source-value">{{ demoTopLeadSources[0].leadFrom }} <span class="lead-source-count">({{ demoTopLeadSources[0].count }})</span></span>
+          <span class="booking-count-label">most calls booked from this</span>
+        </div>
       </div>
 
       <div class="slot-cards-row">
@@ -236,6 +409,7 @@
               <th (click)="onDemoSort('createdAt')" [class.active]="demoSortBy === 'createdAt'">Booked At (IST) <span *ngIf="demoSortBy === 'createdAt'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="col-center" (click)="onDemoSort('matchedType')" [class.active]="demoSortBy === 'matchedType'">Type <span *ngIf="demoSortBy === 'matchedType'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th>Referral Code</th>
+              <th>Lead From</th>
               <th class="col-center" (click)="onDemoSort('registered')" [class.active]="demoSortBy === 'registered'">Registered <span *ngIf="demoSortBy === 'registered'" class="sort-icon">{{ demoSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
             </tr>
           </thead>
@@ -248,6 +422,7 @@
               <td>{{ toIST(row.createdAt) }}</td>
               <td class="col-center">{{ row.matchedType || '-' }}</td>
               <td>{{ row.matchedReferalCode || '-' }}</td>
+              <td>{{ row.leadFrom || '-' }}</td>
               <td class="col-center">
                 <span class="badge" [class.badge-green]="row.registered" [class.badge-grey]="!row.registered">{{ row.registered ? 'Yes' : 'No' }}</span>
               </td>
@@ -359,6 +534,11 @@
           <span class="booking-count-value">{{ assessRepeatBookers.length }}</span>
           <span class="booking-count-label">people booked more than once <ng-container *ngIf="assessRepeatBookers.length > 0">— click to view</ng-container></span>
         </div>
+        <div class="booking-count-card lead-source-card" *ngIf="assessTopLeadSources.length > 0">
+          <span class="booking-count-icon">🧲</span>
+          <span class="booking-count-value lead-source-value">{{ assessTopLeadSources[0].leadFrom }} <span class="lead-source-count">({{ assessTopLeadSources[0].count }})</span></span>
+          <span class="booking-count-label">most assessments booked from this</span>
+        </div>
       </div>
 
       <div class="slot-cards-row">
@@ -387,6 +567,7 @@
               <th class="col-center" (click)="onAssessSort('status')" [class.active]="assessSortBy === 'status'">Status <span *ngIf="assessSortBy === 'status'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th class="col-center" (click)="onAssessSort('matchedType')" [class.active]="assessSortBy === 'matchedType'">Type <span *ngIf="assessSortBy === 'matchedType'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
               <th>Referral Code</th>
+              <th>Lead From</th>
               <th class="col-center" (click)="onAssessSort('registered')" [class.active]="assessSortBy === 'registered'">Registered <span *ngIf="assessSortBy === 'registered'" class="sort-icon">{{ assessSortOrder === 'asc' ? '▲' : '▼' }}</span></th>
             </tr>
           </thead>
@@ -403,6 +584,7 @@
               </td>
               <td class="col-center">{{ row.matchedType || '-' }}</td>
               <td>{{ row.matchedReferalCode || '-' }}</td>
+              <td>{{ row.leadFrom || '-' }}</td>
               <td class="col-center">
                 <span class="badge" [class.badge-green]="row.registered" [class.badge-grey]="!row.registered">{{ row.registered ? 'Yes' : 'No' }}</span>
               </td>

@@ -3,8 +3,35 @@
     <h1>Revenue Metrics</h1>
   </div>
 
-  <!-- Segment 1: Key Metrics (no filter — anchored to the latest available month in the sheet) -->
-  <ng-container *ngIf="authService.hasPermission(permissions.gsHealthKeyMetrics)">
+  <div class="subtab-switcher">
+    <button
+      *ngIf="authService.hasPermission(permissions.gsHealthKeyMetrics)"
+      type="button"
+      class="subtab-btn"
+      [class.active]="activeSubTab === 'overview'"
+      (click)="setSubTab('overview')">
+      <span class="subtab-icon">📊</span> Overview
+    </button>
+    <button
+      *ngIf="authService.hasPermission(permissions.gsHealthWebinar)"
+      type="button"
+      class="subtab-btn"
+      [class.active]="activeSubTab === 'webinar'"
+      (click)="setSubTab('webinar')">
+      <span class="subtab-icon">🎥</span> Webinar
+    </button>
+    <button
+      *ngIf="authService.hasPermission(permissions.gsHealthLeadform)"
+      type="button"
+      class="subtab-btn"
+      [class.active]="activeSubTab === 'leadform'"
+      (click)="setSubTab('leadform')">
+      <span class="subtab-icon">📝</span> Lead Form
+    </button>
+  </div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <ng-container *ngIf="activeSubTab === 'overview' && authService.hasPermission(permissions.gsHealthKeyMetrics)">
     <div class="key-metrics-heading">
       <h2 class="section-title">
         Key Metrics
@@ -15,141 +42,41 @@
     <div *ngIf="loadingKeyMetrics" class="loading-inline">Loading key metrics...</div>
     <div *ngIf="keyMetricsError" class="error">{{ keyMetricsError }}</div>
 
-    <div *ngIf="!loadingKeyMetrics && !keyMetricsError" class="metric-category-grid">
-      <section class="segment-card metric-category-card" *ngFor="let cat of metricCategories" [style.borderLeftColor]="cat.accent">
-        <div class="metric-category-header">
-          <span class="metric-category-icon" [style.backgroundColor]="cat.accentBg" [style.color]="cat.accent">{{ cat.icon }}</span>
-          <h3 class="metric-category-title">{{ cat.label }}</h3>
-        </div>
-
-        <div class="metric-slice-grid">
-          <div class="metric-slice primary">
-            <span class="slice-label">Current Month</span>
-            <span class="slice-sublabel">{{ keyMetrics[cat.key]?.currentMonth?.label || '—' }}</span>
-            <span class="slice-value">
-              {{ keyMetrics[cat.key]?.currentMonth?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.currentMonth?.value | number: cat.decimals) : 'N/A' }}
-            </span>
-            <span
-              class="slice-delta"
-              *ngIf="getDelta(keyMetrics[cat.key]?.currentMonth?.value, keyMetrics[cat.key]?.lastMonth?.value, cat.lowerIsBetter) as delta"
-              [class.good]="delta.sentiment === 'good'"
-              [class.bad]="delta.sentiment === 'bad'">
-              {{ delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—' }} {{ delta.pct }}% vs last month
-            </span>
-          </div>
-
-          <div class="metric-slice secondary">
-            <span class="slice-label">Last Month</span>
-            <span class="slice-sublabel">{{ keyMetrics[cat.key]?.lastMonth?.label || '—' }}</span>
-            <span class="slice-value">
-              {{ keyMetrics[cat.key]?.lastMonth?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.lastMonth?.value | number: cat.decimals) : 'N/A' }}
-            </span>
-          </div>
-
-          <div class="metric-slice primary">
-            <span class="slice-label">Current Quarter <span class="avg-tag" *ngIf="cat.isAvg">(Avg)</span></span>
-            <span class="slice-sublabel">{{ keyMetrics[cat.key]?.currentQuarter?.label || '—' }}</span>
-            <span class="slice-value">
-              {{ keyMetrics[cat.key]?.currentQuarter?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.currentQuarter?.value | number: cat.decimals) : 'N/A' }}
-            </span>
-            <span
-              class="slice-delta"
-              *ngIf="getDelta(keyMetrics[cat.key]?.currentQuarter?.value, keyMetrics[cat.key]?.lastQuarter?.value, cat.lowerIsBetter) as delta"
-              [class.good]="delta.sentiment === 'good'"
-              [class.bad]="delta.sentiment === 'bad'">
-              {{ delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—' }} {{ delta.pct }}% vs last quarter
-            </span>
-          </div>
-
-          <div class="metric-slice secondary">
-            <span class="slice-label">Last Quarter <span class="avg-tag" *ngIf="cat.isAvg">(Avg)</span></span>
-            <span class="slice-sublabel">{{ keyMetrics[cat.key]?.lastQuarter?.label || '—' }}</span>
-            <span class="slice-value">
-              {{ keyMetrics[cat.key]?.lastQuarter?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.lastQuarter?.value | number: cat.decimals) : 'N/A' }}
-            </span>
-          </div>
-        </div>
-
-        <div class="metric-subsection-label">By Year</div>
-        <div class="metric-slice-grid">
-          <div class="metric-slice primary">
-            <span class="slice-label">Avg / Month</span>
-            <span class="slice-sublabel">{{ keyMetrics[cat.key]?.currentYearAvgPerMonth?.label || '—' }}</span>
-            <span class="slice-value">
-              {{ keyMetrics[cat.key]?.currentYearAvgPerMonth?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.currentYearAvgPerMonth?.value | number: cat.decimals) : 'N/A' }}
-            </span>
-            <span
-              class="slice-delta"
-              *ngIf="getDelta(keyMetrics[cat.key]?.currentYearAvgPerMonth?.value, keyMetrics[cat.key]?.previousYearAvgPerMonth?.value, cat.lowerIsBetter) as delta"
-              [class.good]="delta.sentiment === 'good'"
-              [class.bad]="delta.sentiment === 'bad'">
-              {{ delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—' }} {{ delta.pct }}% vs last year
-            </span>
-          </div>
-
-          <div class="metric-slice secondary">
-            <span class="slice-label">Avg / Month</span>
-            <span class="slice-sublabel">{{ keyMetrics[cat.key]?.previousYearAvgPerMonth?.label || '—' }}</span>
-            <span class="slice-value">
-              {{ keyMetrics[cat.key]?.previousYearAvgPerMonth?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.previousYearAvgPerMonth?.value | number: cat.decimals) : 'N/A' }}
-            </span>
-          </div>
-
-          <ng-container *ngIf="!cat.isAvg">
-            <div class="metric-slice primary">
-              <span class="slice-label">Total</span>
-              <span class="slice-sublabel">{{ keyMetrics[cat.key]?.currentYearTotal?.label || '—' }}</span>
-              <span class="slice-value">
-                {{ keyMetrics[cat.key]?.currentYearTotal?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.currentYearTotal?.value | number: cat.decimals) : 'N/A' }}
-              </span>
-              <span
-                class="slice-delta"
-                *ngIf="getDelta(keyMetrics[cat.key]?.currentYearTotal?.value, keyMetrics[cat.key]?.previousYearTotal?.value, cat.lowerIsBetter) as delta"
-                [class.good]="delta.sentiment === 'good'"
-                [class.bad]="delta.sentiment === 'bad'">
-                {{ delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—' }} {{ delta.pct }}% vs last year
-              </span>
-            </div>
-
-            <div class="metric-slice secondary">
-              <span class="slice-label">Total</span>
-              <span class="slice-sublabel">{{ keyMetrics[cat.key]?.previousYearTotal?.label || '—' }}</span>
-              <span class="slice-value">
-                {{ keyMetrics[cat.key]?.previousYearTotal?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.previousYearTotal?.value | number: cat.decimals) : 'N/A' }}
-              </span>
-            </div>
-          </ng-container>
-
-          <ng-container *ngIf="cat.isAvg">
-            <div class="metric-slice primary">
-              <span class="slice-label">Best</span>
-              <span class="slice-sublabel">{{ keyMetrics[cat.key]?.currentYearBest?.label || '—' }}</span>
-              <span class="slice-value">
-                {{ keyMetrics[cat.key]?.currentYearBest?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.currentYearBest?.value | number: cat.decimals) : 'N/A' }}
-              </span>
-              <span
-                class="slice-delta"
-                *ngIf="getDelta(keyMetrics[cat.key]?.currentYearBest?.value, keyMetrics[cat.key]?.previousYearBest?.value, cat.lowerIsBetter) as delta"
-                [class.good]="delta.sentiment === 'good'"
-                [class.bad]="delta.sentiment === 'bad'">
-                {{ delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—' }} {{ delta.pct }}% vs last year
-              </span>
-            </div>
-
-            <div class="metric-slice secondary">
-              <span class="slice-label">Best</span>
-              <span class="slice-sublabel">{{ keyMetrics[cat.key]?.previousYearBest?.label || '—' }}</span>
-              <span class="slice-value">
-                {{ keyMetrics[cat.key]?.previousYearBest?.value !== null ? cat.prefix + (keyMetrics[cat.key]?.previousYearBest?.value | number: cat.decimals) : 'N/A' }}
-              </span>
-            </div>
-          </ng-container>
-        </div>
-      </section>
+    <div *ngIf="!loadingKeyMetrics && !keyMetricsError" class="metric-category-stack">
+      <app-metric-category-card *ngFor="let cat of overviewCategories" [config]="cat" [data]="keyMetrics[cat.key]"></app-metric-category-card>
     </div>
   </ng-container>
 
-  <!-- Segment 2: Trends — its own local filter, independent of Segment 1 -->
+  <!-- ============ WEBINAR / LEAD FORM CHANNEL TABS ============ -->
+  <ng-container *ngIf="activeSubTab === 'webinar' && authService.hasPermission(permissions.gsHealthWebinar)">
+    <div class="key-metrics-heading">
+      <h2 class="section-title">
+        Webinar Channel
+        <span class="section-note">ℹ️ Every figure here comes straight from the sheet's Webinar-specific columns — nothing shared with the Lead Form channel.</span>
+      </h2>
+    </div>
+    <div *ngIf="loadingChannelMetrics" class="loading-inline">Loading webinar metrics...</div>
+    <div *ngIf="channelMetricsError" class="error">{{ channelMetricsError }}</div>
+    <div *ngIf="!loadingChannelMetrics && !channelMetricsError" class="metric-category-stack">
+      <app-metric-category-card *ngFor="let cat of channelCategories" [config]="cat" [data]="activeChannelMetrics[cat.key]"></app-metric-category-card>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="activeSubTab === 'leadform' && authService.hasPermission(permissions.gsHealthLeadform)">
+    <div class="key-metrics-heading">
+      <h2 class="section-title">
+        Lead Form Channel
+        <span class="section-note">ℹ️ Every figure here comes straight from the sheet's Demo/Lead Form-specific columns — nothing shared with the Webinar channel.</span>
+      </h2>
+    </div>
+    <div *ngIf="loadingChannelMetrics" class="loading-inline">Loading lead form metrics...</div>
+    <div *ngIf="channelMetricsError" class="error">{{ channelMetricsError }}</div>
+    <div *ngIf="!loadingChannelMetrics && !channelMetricsError" class="metric-category-stack">
+      <app-metric-category-card *ngFor="let cat of channelCategories" [config]="cat" [data]="activeChannelMetrics[cat.key]"></app-metric-category-card>
+    </div>
+  </ng-container>
+
+  <!-- ============ Trends — its own local filter, independent of the tabs above ============ -->
   <section class="segment-card" *ngIf="authService.hasPermission(permissions.gsHealthTrends)">
     <h2 class="section-title">Trends</h2>
 
@@ -209,11 +136,11 @@
 
       <div class="chart-grid">
         <div class="chart-section">
-          <h3>CPP (Cost Per Person)</h3>
-          <app-echart-line [categories]="labels" [values]="cppSeries" seriesName="CPP (₹)" color="#8b5cf6"></app-echart-line>
+          <h3>Webinar CPL (Cost Per Lead)</h3>
+          <app-echart-line [categories]="labels" [values]="cppSeries" seriesName="CPL (₹)" color="#8b5cf6"></app-echart-line>
         </div>
         <div class="chart-section">
-          <h3>Net ROAS</h3>
+          <h3>Webinar Net ROAS</h3>
           <app-echart-line [categories]="labels" [values]="netRoasSeries" seriesName="Net ROAS (x)" color="#ef4444"></app-echart-line>
         </div>
       </div>
@@ -226,12 +153,12 @@
             <thead>
               <tr>
                 <th>Month</th>
-                <th>Registered</th>
-                <th>Net Revenue</th>
-                <th>Ads Spent</th>
-                <th>CPP</th>
-                <th>Net ROAS</th>
-                <th>CAC</th>
+                <th>Leads (Webinar + Lead Form)</th>
+                <th>Net Revenue (Combined)</th>
+                <th>Ads Spent (with GST)</th>
+                <th>Webinar CPL</th>
+                <th>Webinar Net ROAS</th>
+                <th>Overall CAC</th>
                 <th>CAC Ratio</th>
                 <th>Paid Users</th>
                 <th>Team</th>
@@ -242,8 +169,8 @@
               <tr *ngFor="let row of table">
                 <td class="month-label">{{ row.monthLabel }}</td>
                 <td>{{ row.registeredCount }}</td>
-                <td>₹{{ row.netRevenue | number: '1.0-0' }}</td>
-                <td>₹{{ row.adsSpentWithGST | number: '1.0-0' }}</td>
+                <td>₹{{ row.combinedNetRevenue | number: '1.0-0' }}</td>
+                <td>₹{{ row.adsSpent | number: '1.0-0' }}</td>
                 <td>₹{{ row.cpp }}</td>
                 <td>{{ row.netRoas }}x</td>
                 <td>₹{{ row.cac }}</td>

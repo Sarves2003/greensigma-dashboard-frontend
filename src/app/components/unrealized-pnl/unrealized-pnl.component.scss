@@ -33,6 +33,12 @@
   color: #1e5a2a;
 }
 
+.loading-inline {
+  padding: 1.25rem;
+  text-align: center;
+  color: #6b7280;
+}
+
 .error {
   background-color: #fee2e2;
   color: #dc2626;
@@ -61,6 +67,14 @@
   &:hover {
     box-shadow: 0 10px 24px rgba(30, 90, 42, 0.1);
     transform: translateY(-1px);
+  }
+
+  &.clickable {
+    cursor: pointer;
+
+    &:hover {
+      border-left-color: var(--primary-dark, #1e5a2a);
+    }
   }
 
   .summary-icon {
@@ -96,6 +110,11 @@
     font-size: 0.95rem;
     font-weight: 500;
     color: #6b7280;
+  }
+
+  .info-dot {
+    font-size: 0.7rem;
+    cursor: help;
   }
 
   &.positive {

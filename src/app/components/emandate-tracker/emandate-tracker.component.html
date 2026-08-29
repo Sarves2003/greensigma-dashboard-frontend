@@ -31,7 +31,10 @@
     </section>
 
     <section class="segment-card">
-      <h2 class="section-title">Emandate Progress Overview</h2>
+      <h2 class="section-title">
+        Emandate Progress Overview
+        <span class="section-note">ℹ️ "Initial Process" = the customer completed e-mandate authentication, regardless of what happened to later payments. A halted mandate can still have completed the initial process and even Payment 2 — halting only means the most recent auto-debit attempt failed.</span>
+      </h2>
 
       <div class="mini-controls">
         <span class="filter-label">Show:</span>
@@ -56,23 +59,27 @@
       <ng-container *ngIf="!loadingOverview && !errorOverview && overview as o">
         <div class="summary-cards">
           <div class="summary-card">
-            <span class="summary-value">{{ o.totalOwesEmandate }}</span>
+            <span class="summary-value">{{ o.owesEmandate }}</span>
             <span class="summary-label">Total Users That Owe Emandate</span>
           </div>
-          <div class="summary-card" [class.dimmed]="!o.emandateEraApplies">
-            <span class="summary-value">{{ o.completedPct }}% <span class="summary-raw">({{ o.completed }})</span></span>
+          <div class="summary-card" [class.dimmed]="!o.emandateEraApplies" [title]="'Benchmark: ≥' + benchmarks.initial + '%'">
+            <span class="summary-value">{{ o.initialDonePct ?? '—' }}% <span class="summary-raw">({{ o.initialDoneCount }})</span></span>
             <span class="summary-label">Initial Process Completion</span>
           </div>
-          <div class="summary-card clickable" [class.dimmed]="!o.emandateEraApplies" (click)="openOverviewBucketModal('notDone', 'Not At All Processed')">
-            <span class="summary-value">{{ o.notDonePct }}% <span class="summary-raw">({{ o.notDone }})</span></span>
-            <span class="summary-label">Not At All Processed</span>
+          <div class="summary-card" [class.dimmed]="!o.emandateEraApplies" [title]="'Benchmark: ≥' + benchmarks.payment2 + '%'">
+            <span class="summary-value">{{ o.payment2DonePct ?? '—' }}% <span class="summary-raw">({{ o.payment2DoneCount }})</span></span>
+            <span class="summary-label">Payment 2 Completion</span>
+          </div>
+          <div class="summary-card" [class.dimmed]="!o.emandateEraApplies" [title]="'Benchmark: ≥' + benchmarks.payment3 + '%'">
+            <span class="summary-value">{{ o.payment3DonePct ?? '—' }}% <span class="summary-raw">({{ o.payment3DoneCount }})</span></span>
+            <span class="summary-label">Payment 3 Completion</span>
           </div>
           <div class="summary-card clickable" [class.dimmed]="!o.emandateEraApplies" (click)="openOverviewBucketModal('cancelled', 'Emandate Cancelled')">
-            <span class="summary-value">{{ o.cancelledPct }}%</span>
+            <span class="summary-value">{{ o.cancelledPct ?? '—' }}%</span>
             <span class="summary-label">Cancelled</span>
           </div>
-          <div class="summary-card clickable" [class.dimmed]="!o.emandateEraApplies" (click)="openOverviewBucketModal('halted', 'Halted')" title="Same Halted signal as below — proxy for a failed auto-debit, not a confirmed insufficient-funds reason.">
-            <span class="summary-value">{{ o.haltedPct }}%</span>
+          <div class="summary-card clickable" [class.dimmed]="!o.emandateEraApplies" (click)="openOverviewBucketModal('halted', 'Halted')" title="Razorpay doesn't record a decline reason — Halted means the most recent auto-debit attempt failed, which can happen after Payment 2 already succeeded.">
+            <span class="summary-value">{{ o.haltedPct ?? '—' }}%</span>
             <span class="summary-label">Halted <span class="info-dot">ℹ️</span></span>
           </div>
         </div>
@@ -84,9 +91,70 @@
             <app-chart [data]="initialCompletionChartData" [type]="'bar'" [title]="'Completion %'"></app-chart>
           </div>
           <div class="overview-chart-panel">
-            <h3>Full Payment (2 &amp; 3) Completion %</h3>
-            <app-chart [data]="fullPaymentChartData" [type]="'bar'" [title]="'Completion %'"></app-chart>
+            <h3>Overall Conversion % (Full Paid or Fully Settled)</h3>
+            <app-chart [data]="fullPaymentChartData" [type]="'bar'" [title]="'Conversion %'"></app-chart>
           </div>
+        </div>
+
+        <div class="table-header">
+          <h3>Batch-wise Benchmark</h3>
+        </div>
+        <p class="section-note">ℹ️ Green = meets benchmark, yellow = within 10 points, red = further below. For Cancelled/Halted/Not Done/Refund, lower is better (green ≤10%, yellow ≤25%, red beyond).</p>
+
+        <div *ngIf="loadingBatchTable" class="loading-inline">Loading batch benchmark table...</div>
+        <div *ngIf="errorBatchTable" class="error">{{ errorBatchTable }}</div>
+
+        <div class="table-scroll" *ngIf="!loadingBatchTable && !errorBatchTable && batchTableRows.length > 0">
+          <table class="data-table benchmark-table">
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th class="col-num">Total Paid</th>
+                <th class="col-num">Full Paid</th>
+                <th class="col-num">Owes Emandate</th>
+                <th class="col-center">Initial Completion</th>
+                <th class="col-center">Not Done At All</th>
+                <th class="col-center">Refund Rate</th>
+                <th class="col-center">Payment 2 Rate</th>
+                <th class="col-center">Payment 3 Rate</th>
+                <th class="col-center">Overall Conversion</th>
+                <th class="col-center">Cancel Rate</th>
+                <th class="col-center">Halted Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let b of batchTableRows" [class.era-row-dim]="!b.emandateEraApplies">
+                <td>{{ dateLabelFor(b.batchDate) }}</td>
+                <td class="col-num">{{ b.totalInitialPaid }}</td>
+                <td class="col-num">{{ b.totalFullPaid }}</td>
+                <td class="col-num">{{ b.owesEmandate }}</td>
+                <td class="col-center" [ngClass]="heatClass(b.initialDonePct, 'good', benchmarks.initial)">
+                  {{ b.initialDonePct ?? '—' }}% <span class="cell-count" *ngIf="b.initialDonePct !== null">({{ b.initialDoneCount }})</span>
+                </td>
+                <td class="col-center" [ngClass]="heatClass(b.notDoneAtAllPct, 'bad')">
+                  {{ b.notDoneAtAllPct ?? '—' }}% <span class="cell-count" *ngIf="b.notDoneAtAllPct !== null">({{ b.notDoneAtAllCount }})</span>
+                </td>
+                <td class="col-center" [ngClass]="heatClass(b.totalInitialPaid > 0 ? (b.totalRefunded / b.totalInitialPaid * 100) : null, 'bad')">
+                  {{ b.totalInitialPaid > 0 ? ((b.totalRefunded / b.totalInitialPaid * 100) | number:'1.1-1') : '—' }}% <span class="cell-count">({{ b.totalRefunded }})</span>
+                </td>
+                <td class="col-center" [ngClass]="heatClass(b.payment2DonePct, 'good', benchmarks.payment2)">
+                  {{ b.payment2DonePct ?? '—' }}% <span class="cell-count" *ngIf="b.payment2DonePct !== null">({{ b.payment2DoneCount }})</span>
+                </td>
+                <td class="col-center" [ngClass]="heatClass(b.payment3DonePct, 'good', benchmarks.payment3)">
+                  {{ b.payment3DonePct ?? '—' }}% <span class="cell-count" *ngIf="b.payment3DonePct !== null">({{ b.payment3DoneCount }})</span>
+                </td>
+                <td class="col-center" [ngClass]="heatClass(b.overallConversionPct, 'good', benchmarks.overall)">
+                  {{ b.overallConversionPct ?? '—' }}%
+                </td>
+                <td class="col-center" [ngClass]="heatClass(b.cancelledPct, 'bad')">
+                  {{ b.cancelledPct ?? '—' }}% <span class="cell-count" *ngIf="b.cancelledPct !== null">({{ b.cancelledCount }})</span>
+                </td>
+                <td class="col-center" [ngClass]="heatClass(b.haltedPct, 'bad')">
+                  {{ b.haltedPct ?? '—' }}% <span class="cell-count" *ngIf="b.haltedPct !== null">({{ b.haltedCount }})</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </ng-container>
     </section>
@@ -118,23 +186,31 @@
             <span class="summary-label">Total Full Paid</span>
           </div>
           <div class="summary-card">
-            <span class="summary-value">{{ s.remaining }}</span>
-            <span class="summary-label">Remaining (Owes Emandate)</span>
+            <span class="summary-value">{{ s.owesEmandate }}</span>
+            <span class="summary-label">Owes Emandate</span>
           </div>
           <div class="summary-card" [class.dimmed]="!s.emandateEraApplies">
-            <span class="summary-value">{{ s.completedPct }}% <span class="summary-raw">({{ s.completed }})</span></span>
-            <span class="summary-label">Emandate Completed</span>
+            <span class="summary-value">{{ s.initialDonePct ?? '—' }}% <span class="summary-raw">({{ s.initialDoneCount }})</span></span>
+            <span class="summary-label">Initial Process Completion</span>
           </div>
-          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal('not_done', 'Not At All Done')">
-            <span class="summary-value">{{ s.notDone }}</span>
+          <div class="summary-card" [class.dimmed]="!s.emandateEraApplies">
+            <span class="summary-value">{{ s.payment2DonePct ?? '—' }}% <span class="summary-raw">({{ s.payment2DoneCount }})</span></span>
+            <span class="summary-label">Payment 2 Completion</span>
+          </div>
+          <div class="summary-card" [class.dimmed]="!s.emandateEraApplies">
+            <span class="summary-value">{{ s.payment3DonePct ?? '—' }}% <span class="summary-raw">({{ s.payment3DoneCount }})</span></span>
+            <span class="summary-label">Payment 3 Completion</span>
+          </div>
+          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal(rowNotDoneAtAll, 'Not At All Done')">
+            <span class="summary-value">{{ s.notDoneAtAllCount }}</span>
             <span class="summary-label">Not At All Done</span>
           </div>
-          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal('cancelled', 'Emandate Cancelled')">
-            <span class="summary-value">{{ s.cancelled }}</span>
+          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal(rowCancelled, 'Emandate Cancelled')">
+            <span class="summary-value">{{ s.cancelledCount }}</span>
             <span class="summary-label">Emandate Cancelled</span>
           </div>
-          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal('halted', 'Halted')" title="Razorpay doesn't record a specific decline reason — Halted is the closest available signal, and usually (not always) means a failed auto-debit due to insufficient funds.">
-            <span class="summary-value">{{ s.halted }}</span>
+          <div class="summary-card clickable" [class.dimmed]="!s.emandateEraApplies" (click)="openBucketModal(rowHalted, 'Halted')" title="Razorpay doesn't record a decline reason — Halted means the most recent auto-debit attempt failed, which can happen after Payment 2 already succeeded.">
+            <span class="summary-value">{{ s.haltedCount }}</span>
             <span class="summary-label">Halted <span class="info-dot">ℹ️</span></span>
           </div>
         </div>
@@ -170,7 +246,8 @@
                 <th (click)="onSort('paymentStatus')" [class.active]="sortBy === 'paymentStatus'">Payment Status <span *ngIf="sortBy === 'paymentStatus'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span></th>
                 <th class="col-center">Payment 2</th>
                 <th class="col-center">Payment 3</th>
-                <th class="col-center">Mandate State</th>
+                <th class="col-center">Progress</th>
+                <th class="col-center">State</th>
                 <th>Remarks</th>
               </tr>
             </thead>
@@ -208,11 +285,18 @@
                   </ng-container>
                 </td>
                 <td class="col-center">
+                  <span class="progress-ticks" *ngIf="row.currentState !== 'not_applicable'; else noPayment" title="Initial / Payment 2 / Payment 3">
+                    <span class="tick" [class.tick-on]="row.initialDone">1</span>
+                    <span class="tick" [class.tick-on]="row.payment2Done">2</span>
+                    <span class="tick" [class.tick-on]="row.payment3Done">3</span>
+                  </span>
+                </td>
+                <td class="col-center">
                   <span class="badge"
-                    [class.badge-green]="row.mandateState === 'active'"
-                    [class.badge-red]="row.mandateState === 'cancelled' || row.mandateState === 'halted'"
-                    [class.badge-grey]="row.mandateState === 'not_done' || row.mandateState === 'not_applicable'">
-                    {{ mandateStateLabel(row.mandateState) }}
+                    [class.badge-green]="row.currentState === 'active'"
+                    [class.badge-red]="row.currentState === 'cancelled' || row.currentState === 'halted'"
+                    [class.badge-grey]="row.currentState === 'not_started' || row.currentState === 'not_applicable'">
+                    {{ currentStateLabel(row.currentState) }}
                   </span>
                 </td>
                 <td>

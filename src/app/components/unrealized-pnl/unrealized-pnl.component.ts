@@ -20,6 +20,11 @@ interface HoldingPnl {
   pnlPercent: number;
 }
 
+interface SipEvent {
+  date: string;
+  amount: number;
+}
+
 interface PortfolioPnl {
   portfolioId: string;
   userId: string;
@@ -34,6 +39,15 @@ interface PortfolioPnl {
   rebalanceCount: number;
   stocksTraded: number;
   holdings: HoldingPnl[];
+  investmentCapital: number | null;
+  freeCash: number;
+  lockedFreeCash: number;
+  sipEvents: SipEvent[];
+  joinedDate: string | null;
+  // Computed client-side, refreshed on every filter change — see computeSipAndAum().
+  sipCountInPeriod: number;
+  sipAmountInPeriod: number;
+  aumDeployed: number;
 }
 
 interface ContactInfo {
@@ -41,6 +55,21 @@ interface ContactInfo {
   name: string;
   email: string;
   whatsappNumber: string | null;
+}
+
+interface IdleCashRow {
+  userId: string;
+  portfolioName: string;
+  investmentCapital: number | null;
+  idleCash: number;
+}
+
+interface SipRow {
+  userId: string;
+  name: string;
+  whatsappNumber: string | null;
+  sipAmountInPeriod: number;
+  sipCountInPeriod: number;
 }
 
 interface HistogramBin {
@@ -117,7 +146,20 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
   exportStatus: string | null = null;
   exportLoading = false;
 
-  totals = { invested: 0, current: 0, pnl: 0 };
+  totals = { invested: 0, current: 0, pnl: 0, aumDeployed: 0, idleCash: 0, sipInPeriod: 0, sipCountInPeriod: 0 };
+
+  // Idle Cash detail modal — one row per portfolio, sortable
+  showIdleCashModal = false;
+  idleCashRows: IdleCashRow[] = [];
+  idleCashSortBy: keyof IdleCashRow = 'idleCash';
+  idleCashSortOrder: 'asc' | 'desc' = 'desc';
+
+  // SIP Investment detail modal — one row per client (aggregated across their portfolios), sortable
+  showSipModal = false;
+  sipRows: SipRow[] = [];
+  sipSortBy: keyof SipRow = 'sipAmountInPeriod';
+  sipSortOrder: 'asc' | 'desc' = 'desc';
+  loadingSipContacts = false;
   positiveCount = 0;
   negativeCount = 0;
   winner: PortfolioPnl | null = null;
@@ -224,11 +266,16 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
       filtered = filtered.filter((p) => !this.isInactive(p));
     }
 
+    // Must run before the sort below — sipCountInPeriod/sipAmountInPeriod/aumDeployed are fields
+    // the sort can be asked to order by, so they need fresh values (matching the current date
+    // filters) before comparisons read them, not after.
+    this.computeSipAndAum(filtered);
+
     filtered.sort((a: any, b: any) => {
       let fieldA = a[this.sortBy];
       let fieldB = b[this.sortBy];
 
-      if (this.sortBy === 'createdAt' || this.sortBy === 'updatedAt') {
+      if (this.sortBy === 'createdAt' || this.sortBy === 'updatedAt' || this.sortBy === 'joinedDate') {
         fieldA = fieldA ? new Date(fieldA).getTime() : 0;
         fieldB = fieldB ? new Date(fieldB).getTime() : 0;
       }
@@ -295,10 +342,49 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
         acc.invested += p.investedValue;
         acc.current += p.currentValue;
         acc.pnl += p.pnl;
+        acc.aumDeployed += p.aumDeployed;
+        acc.idleCash += (p.freeCash || 0) + (p.lockedFreeCash || 0);
+        acc.sipInPeriod += p.sipAmountInPeriod;
+        acc.sipCountInPeriod += p.sipCountInPeriod;
         return acc;
       },
-      { invested: 0, current: 0, pnl: 0 }
+      { invested: 0, current: 0, pnl: 0, aumDeployed: 0, idleCash: 0, sipInPeriod: 0, sipCountInPeriod: 0 }
     );
+  }
+
+  // AUM Deployed = money the client has actually committed to the portfolio (original capital +
+  // every SIP top-up), as opposed to "Total Invested" which only counts money currently sitting in
+  // stock positions. `investmentCapital` never includes SIP amounts (confirmed against real data —
+  // a portfolio can have investmentCapital smaller than a single one of its own SIP events), so SIP
+  // is added on top explicitly. For older/manual portfolios with no investmentCapital saved at all,
+  // `investedValue` is used as-is instead — it already organically includes any SIP-driven share
+  // purchases, so SIP must NOT also be added on top there (that would double-count it).
+  //
+  // SIP events count toward "in period" using the exact same Created At / Updated At range(s)
+  // already active for the portfolio list itself, applied to each SIP event's own date.
+  private computeSipAndAum(portfolios: PortfolioPnl[]) {
+    for (const p of portfolios) {
+      const inPeriodEvents = p.sipEvents.filter((e) => {
+        const time = new Date(e.date).getTime();
+        return this.isTimeInRange(time, this.createdFrom, this.createdTo) && this.isTimeInRange(time, this.updatedFrom, this.updatedTo);
+      });
+
+      p.sipCountInPeriod = inPeriodEvents.length;
+      p.sipAmountInPeriod = inPeriodEvents.reduce((sum, e) => sum + e.amount, 0);
+
+      p.aumDeployed = p.investmentCapital !== null ? p.investmentCapital + p.sipAmountInPeriod : p.investedValue;
+    }
+  }
+
+  private isTimeInRange(time: number, from: string, to: string): boolean {
+    if (!from && !to) return true;
+    if (from && time < new Date(from).getTime()) return false;
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      if (time > toDate.getTime()) return false;
+    }
+    return true;
   }
 
   private computeCounts() {
@@ -349,20 +435,11 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
       return list;
     }
 
-    const fromTime = from ? new Date(from).getTime() : null;
-    let toTime: number | null = null;
-    if (to) {
-      const toDate = new Date(to);
-      toDate.setHours(23, 59, 59, 999);
-      toTime = toDate.getTime();
-    }
-
     return list.filter((p) => {
       const value = p[field];
       if (!value) return false;
       const time = new Date(value).getTime();
-      if (fromTime !== null && time < fromTime) return false;
-      if (toTime !== null && time > toTime) return false;
+      if (!this.isTimeInRange(time, from, to)) return false;
       return true;
     });
   }
@@ -416,6 +493,133 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     const d = new Date(value);
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${d.getDate()}-${monthNames[d.getMonth()]}-${d.getFullYear()}`;
+  }
+
+  openIdleCashModal() {
+    this.idleCashRows = this.filteredPortfolios.map((p) => ({
+      userId: p.userId,
+      portfolioName: p.portfolioName,
+      investmentCapital: p.investmentCapital,
+      idleCash: (p.freeCash || 0) + (p.lockedFreeCash || 0),
+    }));
+    this.sortIdleCashRows();
+    this.showIdleCashModal = true;
+  }
+
+  closeIdleCashModal() {
+    this.showIdleCashModal = false;
+  }
+
+  onIdleCashSort(column: keyof IdleCashRow) {
+    if (this.idleCashSortBy === column) {
+      this.idleCashSortOrder = this.idleCashSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.idleCashSortBy = column;
+      this.idleCashSortOrder = 'desc';
+    }
+    this.sortIdleCashRows();
+  }
+
+  private sortIdleCashRows() {
+    const key = this.idleCashSortBy;
+    this.idleCashRows = [...this.idleCashRows].sort((a, b) => {
+      const fieldA = a[key];
+      const fieldB = b[key];
+      let comparison = 0;
+      if (typeof fieldA === 'string') {
+        comparison = fieldA.localeCompare(fieldB as string);
+      } else {
+        comparison = (fieldA as number ?? 0) - (fieldB as number ?? 0);
+      }
+      return this.idleCashSortOrder === 'asc' ? comparison : -comparison;
+    });
+  }
+
+  // Aggregated per client (not per portfolio) since one client can run several portfolios that
+  // each received a SIP top-up in the selected period — the popup is meant to answer "which
+  // clients added SIP money," not "which portfolio rows."
+  openSipModal() {
+    const withSip = this.filteredPortfolios.filter((p) => p.sipCountInPeriod > 0);
+    this.showSipModal = true;
+
+    if (withSip.length === 0) {
+      this.sipRows = [];
+      return;
+    }
+
+    const byUser = new Map<string, { sipAmountInPeriod: number; sipCountInPeriod: number }>();
+    for (const p of withSip) {
+      const existing = byUser.get(p.userId) || { sipAmountInPeriod: 0, sipCountInPeriod: 0 };
+      existing.sipAmountInPeriod += p.sipAmountInPeriod;
+      existing.sipCountInPeriod += p.sipCountInPeriod;
+      byUser.set(p.userId, existing);
+    }
+
+    this.loadingSipContacts = true;
+    this.apiService
+      .getUserContacts([...byUser.keys()])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          const contactsByUserId = new Map<string, ContactInfo>();
+          (response.data || []).forEach((c: ContactInfo) => contactsByUserId.set(c.userId, c));
+
+          this.sipRows = [...byUser.entries()].map(([userId, agg]) => {
+            const contact = contactsByUserId.get(userId);
+            return {
+              userId,
+              name: contact?.name || '-',
+              whatsappNumber: contact?.whatsappNumber || null,
+              sipAmountInPeriod: agg.sipAmountInPeriod,
+              sipCountInPeriod: agg.sipCountInPeriod,
+            };
+          });
+          this.sortSipRows();
+          this.loadingSipContacts = false;
+        },
+        error: (error) => {
+          console.error(error);
+          // Still show the table, just without name/number — better than nothing on a fetch failure.
+          this.sipRows = [...byUser.entries()].map(([userId, agg]) => ({
+            userId,
+            name: '-',
+            whatsappNumber: null,
+            sipAmountInPeriod: agg.sipAmountInPeriod,
+            sipCountInPeriod: agg.sipCountInPeriod,
+          }));
+          this.sortSipRows();
+          this.loadingSipContacts = false;
+        },
+      });
+  }
+
+  closeSipModal() {
+    this.showSipModal = false;
+  }
+
+  onSipSort(column: keyof SipRow) {
+    if (this.sipSortBy === column) {
+      this.sipSortOrder = this.sipSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sipSortBy = column;
+      this.sipSortOrder = 'desc';
+    }
+    this.sortSipRows();
+  }
+
+  private sortSipRows() {
+    const key = this.sipSortBy;
+    this.sipRows = [...this.sipRows].sort((a, b) => {
+      const fieldA = a[key];
+      const fieldB = b[key];
+      let comparison = 0;
+      if (typeof fieldA === 'string') {
+        comparison = fieldA.localeCompare((fieldB as string) || '');
+      } else {
+        comparison = (fieldA as number ?? 0) - (fieldB as number ?? 0);
+      }
+      return this.sipSortOrder === 'asc' ? comparison : -comparison;
+    });
   }
 
   openDetail(portfolio: PortfolioPnl) {
@@ -492,9 +696,11 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
   downloadClientList() {
     const topN = Math.max(1, this.exportTopN || 1);
     const uniqueUserIds: string[] = [];
+    const portfolioByUserId = new Map<string, PortfolioPnl>();
     for (const p of this.filteredPortfolios) {
       if (!uniqueUserIds.includes(p.userId)) {
         uniqueUserIds.push(p.userId);
+        portfolioByUserId.set(p.userId, p);
       }
       if (uniqueUserIds.length >= topN) break;
     }
@@ -515,7 +721,7 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
           const contactsByUserId = new Map<string, ContactInfo>();
           (response.data || []).forEach((c: ContactInfo) => contactsByUserId.set(c.userId, c));
 
-          const rows: { name: string; phone: string }[] = [];
+          const rows: { name: string; phone: string; pnl: number; pnlPercent: number; createdAt: string }[] = [];
           let skipped = 0;
 
           for (const userId of uniqueUserIds) {
@@ -524,7 +730,14 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
               skipped++;
               continue;
             }
-            rows.push({ name: contact.name || 'Unknown', phone: contact.whatsappNumber });
+            const portfolio = portfolioByUserId.get(userId);
+            rows.push({
+              name: contact.name || 'Unknown',
+              phone: contact.whatsappNumber,
+              pnl: portfolio?.pnl || 0,
+              pnlPercent: portfolio?.pnlPercent || 0,
+              createdAt: portfolio?.createdAt ? this.formatDate(portfolio.createdAt) : '',
+            });
           }
 
           if (rows.length === 0) {
@@ -549,7 +762,7 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
       });
   }
 
-  private generateAndDownloadCsv(rows: { name: string; phone: string }[]) {
+  private generateAndDownloadCsv(rows: { name: string; phone: string; pnl: number; pnlPercent: number; createdAt: string }[]) {
     const escape = (val: string) => {
       const str = String(val ?? '');
       return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
@@ -559,11 +772,21 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     let lines: string[];
 
     if (this.exportFormat === 'aisensy') {
-      header = ['Name', 'Mobile Number', 'Source', 'Tags'];
+      header = ['Name', 'Mobile Number', 'Source', 'Tags', 'P&L (₹)', 'ROI (%)', 'Created At'];
       lines = rows.map((r) =>
-        [escape(r.name), r.phone, escape(this.exportSource), escape(this.exportTags)].join(',')
+        [
+          escape(r.name),
+          r.phone,
+          escape(this.exportSource),
+          escape(this.exportTags),
+          r.pnl.toFixed(2),
+          r.pnlPercent.toFixed(2),
+          r.createdAt,
+        ].join(',')
       );
     } else {
+      // Periskope only ever imports a single chat_id column — adding extra columns would break its
+      // parser, so this format is intentionally left as-is.
       header = ['chat_id'];
       lines = rows.map((r) => `${r.phone}@c.us`);
     }

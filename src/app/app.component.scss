@@ -7,7 +7,7 @@
 
 .dashboard-sidebar {
   width: 240px;
-  background: linear-gradient(180deg, #1e5a2a 0%, #123a1b 100%);
+  background: #0a0a0a;
   color: white;
   position: fixed;
   left: 0;
@@ -15,41 +15,21 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.35);
   overflow-y: auto;
   z-index: 1000;
 
   .sidebar-header {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
     padding: 1.5rem 1.25rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
-    .logo-mark {
-      width: 2.25rem;
-      height: 2.25rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: 0.65rem;
-      font-size: 1.2rem;
-    }
-
-    .logo {
-      font-size: 1.15rem;
-      font-weight: 700;
-      margin: 0;
-      line-height: 1.2;
-    }
-
-    .subtitle {
-      font-size: 0.7rem;
-      opacity: 0.75;
-      margin: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .logo-img {
+      max-width: 100%;
+      height: 2.1rem;
+      width: auto;
+      object-fit: contain;
     }
   }
 
@@ -96,13 +76,12 @@
       }
 
       &.active {
-        background: rgba(255, 255, 255, 0.16);
+        background: var(--primary-color);
         color: white;
         font-weight: 600;
-        box-shadow: inset 3px 0 0 #7ed99a;
 
         .icon {
-          background: #2d7d3d;
+          background: rgba(255, 255, 255, 0.2);
         }
       }
 

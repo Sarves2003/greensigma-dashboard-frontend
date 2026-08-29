@@ -81,6 +81,22 @@ export class ApiService {
     return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/usage-analysis/assessments`);
   }
 
+  getUsageAnalysisUserDetail(userId: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/usage-analysis/user-detail/${userId}`);
+  }
+
+  setUsageAnalysisUserStatus(userId: string, status: string | null): Observable<APIResponse<any>> {
+    return this.http.patch<APIResponse<any>>(`${this.baseUrl}/usage-analysis/user-status/${userId}`, { status });
+  }
+
+  getUsageAnalysisUserNotes(userId: string): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/usage-analysis/user-notes/${userId}`);
+  }
+
+  addUsageAnalysisUserNote(userId: string, text: string): Observable<APIResponse<any[]>> {
+    return this.http.post<APIResponse<any[]>>(`${this.baseUrl}/usage-analysis/user-notes/${userId}`, { text });
+  }
+
   // Activation Tracker
   getActivationTable(date: string): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/activation-tracker/table`, { params: this.buildParams({ date }) });
@@ -101,6 +117,10 @@ export class ApiService {
 
   getEmandateOverview(dates: string[]): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/overview`, { params: this.buildParams({ dates: dates.join(',') }) });
+  }
+
+  getEmandateBatchTable(dates: string[]): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/emandate-tracker/batch-table`, { params: this.buildParams({ dates: dates.join(',') }) });
   }
 
   saveEmandateRemark(phone: string, batchDate: string, remark: string): Observable<APIResponse<any>> {
@@ -300,6 +320,10 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/key-metrics`);
   }
 
+  getGsHealthChannelMetrics(channel: 'webinar' | 'leadform'): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/channel-metrics`, { params: this.buildParams({ channel }) });
+  }
+
   getGsHealthSummary(params: any): Observable<APIResponse<any>> {
     let httpParams = new HttpParams();
     Object.keys(params).forEach((key) => {
@@ -446,5 +470,9 @@ export class ApiService {
 
   setRolePermissions(role: string, permissions: string[]): Observable<APIResponse<any>> {
     return this.http.put<APIResponse<any>>(`${this.baseUrl}/admin/role-permissions/${role}`, { permissions });
+  }
+
+  getLoginHistory(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/admin/login-history`);
   }
 }

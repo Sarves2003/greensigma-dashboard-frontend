@@ -96,12 +96,36 @@
       </div>
     </section>
 
-    <!-- Summary Row 1: hero totals -->
+    <!-- Summary Row 1: capital deployment -->
+    <div class="metrics-grid hero-grid">
+      <div class="summary-card hero-card" title="What clients actually committed: original capital (investmentCapital) plus every SIP top-up — whether that money is currently sitting in stocks or as idle cash. Falls back to Total Invested for older portfolios with no investmentCapital saved.">
+        <span class="summary-icon">🏦</span>
+        <span class="summary-label">Total AUM Deployed <span class="info-dot">ℹ️</span></span>
+        <span class="summary-value">₹{{ totals.aumDeployed | number: '1.0-0' }}</span>
+        <span class="summary-sub">Investment Capital + SIP</span>
+      </div>
+      <div class="summary-card hero-card clickable" (click)="openIdleCashModal()">
+        <span class="summary-icon">🪙</span>
+        <span class="summary-label">Total Idle Cash</span>
+        <span class="summary-value">₹{{ totals.idleCash | number: '1.0-0' }}</span>
+        <span class="summary-sub">Sitting uninvested right now — click for detail</span>
+      </div>
+      <div class="summary-card hero-card clickable" (click)="openSipModal()">
+        <span class="summary-icon">🔄</span>
+        <span class="summary-label">SIP Investment</span>
+        <span class="summary-value">₹{{ totals.sipInPeriod | number: '1.0-0' }} <span class="summary-fraction">({{ totals.sipCountInPeriod }})</span></span>
+        <span class="summary-sub" *ngIf="!createdFrom && !createdTo && !updatedFrom && !updatedTo; else sipSub">No date filter set — showing all-time. Click for detail</span>
+        <ng-template #sipSub><span class="summary-sub">Click for detail</span></ng-template>
+      </div>
+    </div>
+
+    <!-- Summary Row 2: performance -->
     <div class="metrics-grid hero-grid">
       <div class="summary-card hero-card">
         <span class="summary-icon">💰</span>
         <span class="summary-label">Total Invested</span>
         <span class="summary-value">₹{{ totals.invested | number: '1.0-0' }}</span>
+        <span class="summary-sub">Actually deployed into stocks</span>
       </div>
       <div class="summary-card hero-card">
         <span class="summary-icon">📈</span>
@@ -221,6 +245,18 @@
                 Stocks Traded
                 <span *ngIf="sortBy === 'stocksTraded'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
               </th>
+              <th class="col-num" (click)="onSort('sipCountInPeriod')" [class.active]="sortBy === 'sipCountInPeriod'" title="Counts SIP events whose own date falls within the Created At / Updated At filters above">
+                SIP Count (Period)
+                <span *ngIf="sortBy === 'sipCountInPeriod'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-num" (click)="onSort('sipAmountInPeriod')" [class.active]="sortBy === 'sipAmountInPeriod'">
+                SIP Amount (Period) (₹)
+                <span *ngIf="sortBy === 'sipAmountInPeriod'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
+              <th class="col-center" (click)="onSort('joinedDate')" [class.active]="sortBy === 'joinedDate'">
+                Joined Date
+                <span *ngIf="sortBy === 'joinedDate'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -244,6 +280,9 @@
               <td class="col-center">{{ formatDate(portfolio.updatedAt) }}</td>
               <td class="col-num">{{ portfolio.rebalanceCount }}</td>
               <td class="col-num">{{ portfolio.stocksTraded }}</td>
+              <td class="col-num">{{ portfolio.sipCountInPeriod }}</td>
+              <td class="col-num">{{ portfolio.sipAmountInPeriod | number: '1.0-0' }}</td>
+              <td class="col-center">{{ portfolio.joinedDate ? formatDate(portfolio.joinedDate) : '-' }}</td>
             </tr>
           </tbody>
         </table>
@@ -405,7 +444,7 @@
             <label>Tags</label>
             <input type="text" [(ngModel)]="exportTags" placeholder="e.g. B56paidG1">
           </div>
-          <p class="export-hint">CSV columns: Name, Mobile Number, Source, Tags</p>
+          <p class="export-hint">CSV columns: Name, Mobile Number, Source, Tags, P&amp;L (₹), ROI (%), Created At</p>
         </ng-container>
 
         <p class="export-hint" *ngIf="exportFormat === 'periskope'">
@@ -417,6 +456,93 @@
         <button type="button" class="btn-primary" [disabled]="exportLoading" (click)="downloadClientList()">
           {{ exportLoading ? 'Preparing…' : 'Download CSV' }}
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Idle Cash Detail Modal -->
+  <div class="modal-overlay" *ngIf="showIdleCashModal" (click)="closeIdleCashModal()">
+    <div class="modal-content detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Idle Cash by Portfolio ({{ idleCashRows.length }})</h2>
+        <button class="btn-close" (click)="closeIdleCashModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll">
+          <table class="data-table sortable">
+            <thead>
+              <tr>
+                <th (click)="onIdleCashSort('userId')" [class.active]="idleCashSortBy === 'userId'">
+                  User ID <span *ngIf="idleCashSortBy === 'userId'" class="sort-icon">{{ idleCashSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                </th>
+                <th (click)="onIdleCashSort('portfolioName')" [class.active]="idleCashSortBy === 'portfolioName'">
+                  Portfolio Name <span *ngIf="idleCashSortBy === 'portfolioName'" class="sort-icon">{{ idleCashSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                </th>
+                <th class="col-num" (click)="onIdleCashSort('investmentCapital')" [class.active]="idleCashSortBy === 'investmentCapital'">
+                  Invested Capital (₹) <span *ngIf="idleCashSortBy === 'investmentCapital'" class="sort-icon">{{ idleCashSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                </th>
+                <th class="col-num" (click)="onIdleCashSort('idleCash')" [class.active]="idleCashSortBy === 'idleCash'">
+                  Idle Cash (₹) <span *ngIf="idleCashSortBy === 'idleCash'" class="sort-icon">{{ idleCashSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of idleCashRows">
+                <td>{{ row.userId }}</td>
+                <td>{{ row.portfolioName }}</td>
+                <td class="col-num">{{ row.investmentCapital !== null ? (row.investmentCapital | number: '1.0-0') : '-' }}</td>
+                <td class="col-num">{{ row.idleCash | number: '1.0-0' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="no-data" *ngIf="idleCashRows.length === 0">No portfolios match the current filters.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIP Investment Detail Modal -->
+  <div class="modal-overlay" *ngIf="showSipModal" (click)="closeSipModal()">
+    <div class="modal-content detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>SIP Investment by Client ({{ sipRows.length }})</h2>
+        <button class="btn-close" (click)="closeSipModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="loadingSipContacts" class="loading-inline">Loading client details...</div>
+        <ng-container *ngIf="!loadingSipContacts">
+          <div class="table-scroll">
+            <table class="data-table sortable">
+              <thead>
+                <tr>
+                  <th (click)="onSipSort('userId')" [class.active]="sipSortBy === 'userId'">
+                    User ID <span *ngIf="sipSortBy === 'userId'" class="sort-icon">{{ sipSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                  </th>
+                  <th (click)="onSipSort('name')" [class.active]="sipSortBy === 'name'">
+                    Name <span *ngIf="sipSortBy === 'name'" class="sort-icon">{{ sipSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                  </th>
+                  <th>Number</th>
+                  <th class="col-num" (click)="onSipSort('sipAmountInPeriod')" [class.active]="sipSortBy === 'sipAmountInPeriod'">
+                    SIP Amount Added (₹) <span *ngIf="sipSortBy === 'sipAmountInPeriod'" class="sort-icon">{{ sipSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                  </th>
+                  <th class="col-num" (click)="onSipSort('sipCountInPeriod')" [class.active]="sipSortBy === 'sipCountInPeriod'">
+                    SIP Count <span *ngIf="sipSortBy === 'sipCountInPeriod'" class="sort-icon">{{ sipSortOrder === 'asc' ? '▲' : '▼' }}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of sipRows">
+                  <td>{{ row.userId }}</td>
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.whatsappNumber || '-' }}</td>
+                  <td class="col-num">{{ row.sipAmountInPeriod | number: '1.0-0' }}</td>
+                  <td class="col-num">{{ row.sipCountInPeriod }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="no-data" *ngIf="sipRows.length === 0">No SIP activity in the currently selected period.</p>
+        </ng-container>
       </div>
     </div>
   </div>

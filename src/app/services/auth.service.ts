@@ -87,6 +87,9 @@ export class AuthService {
   }
 
   logout(): void {
+    // Best-effort: the audit log entry matters, but a network hiccup should never block sign-out.
+    // Fired before clearSession() so the auth interceptor still has a token to attach.
+    this.http.post(`${this.baseUrl}/auth/logout`, {}).subscribe({ next: () => {}, error: () => {} });
     this.clearSession();
     this.router.navigate(['/login']);
   }

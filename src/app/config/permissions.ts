@@ -12,6 +12,8 @@ export const PERMISSIONS = {
   gsHealth: 'tab:gs-health',
   gsHealthKeyMetrics: 'card:gs-health:key-metrics',
   gsHealthTrends: 'card:gs-health:trends',
+  gsHealthWebinar: 'card:gs-health:webinar',
+  gsHealthLeadform: 'card:gs-health:leadform',
 
   funnelAnalysis: 'tab:funnel-analysis',
   funnelSegment1: 'card:funnel-analysis:segment1',

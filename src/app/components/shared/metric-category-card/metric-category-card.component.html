@@ -1,0 +1,96 @@
+<section class="metric-card" [style.borderLeftColor]="config.accent">
+  <div class="metric-header">
+    <span class="metric-icon" [style.backgroundColor]="config.accentBg" [style.color]="config.accent">{{ config.icon }}</span>
+    <h3 class="metric-title">{{ config.label }}</h3>
+  </div>
+
+  <div class="metric-hero">
+    <span class="hero-label">{{ data?.currentMonth?.label || 'This Month' }}</span>
+    <span class="hero-value">
+      {{ data?.currentMonth?.value !== null && data?.currentMonth?.value !== undefined ? config.prefix + (data?.currentMonth?.value | number: config.decimals) : 'N/A' }}
+    </span>
+    <span
+      class="hero-delta"
+      *ngIf="getDelta(data?.currentMonth?.value, data?.lastMonth?.value, config.lowerIsBetter) as delta"
+      [class.good]="delta.sentiment === 'good'"
+      [class.bad]="delta.sentiment === 'bad'">
+      {{ delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—' }} {{ delta.pct }}% vs last month
+    </span>
+  </div>
+
+  <div class="hero-chips">
+    <div class="hero-chip">
+      <span class="chip-label">Last Month</span>
+      <span class="chip-value">
+        {{ data?.lastMonth?.value !== null && data?.lastMonth?.value !== undefined ? config.prefix + (data?.lastMonth?.value | number: config.decimals) : '—' }}
+      </span>
+    </div>
+    <div class="hero-chip">
+      <span class="chip-label">{{ config.isAvg ? 'This Qtr (Avg)' : 'This Quarter' }}</span>
+      <span class="chip-value">
+        {{ data?.currentQuarter?.value !== null && data?.currentQuarter?.value !== undefined ? config.prefix + (data?.currentQuarter?.value | number: config.decimals) : '—' }}
+      </span>
+      <span
+        class="chip-delta"
+        *ngIf="getDelta(data?.currentQuarter?.value, data?.lastQuarter?.value, config.lowerIsBetter) as qDelta"
+        [class.good]="qDelta.sentiment === 'good'"
+        [class.bad]="qDelta.sentiment === 'bad'">
+        {{ qDelta.direction === 'up' ? '▲' : qDelta.direction === 'down' ? '▼' : '—' }} {{ qDelta.pct }}%
+      </span>
+    </div>
+    <div class="hero-chip">
+      <span class="chip-label">{{ config.isAvg ? 'Last Qtr (Avg)' : 'Last Quarter' }}</span>
+      <span class="chip-value">
+        {{ data?.lastQuarter?.value !== null && data?.lastQuarter?.value !== undefined ? config.prefix + (data?.lastQuarter?.value | number: config.decimals) : '—' }}
+      </span>
+    </div>
+  </div>
+
+  <div class="year-compare">
+    <div class="year-card current">
+      <span class="year-card-label">{{ data?.currentYearAvgPerMonth?.label || 'This Year' }}</span>
+      <div class="year-card-row">
+        <span class="year-card-key">Avg / Month</span>
+        <span class="year-card-val">
+          {{ data?.currentYearAvgPerMonth?.value !== null && data?.currentYearAvgPerMonth?.value !== undefined ? config.prefix + (data?.currentYearAvgPerMonth?.value | number: config.decimals) : '—' }}
+        </span>
+      </div>
+      <div class="year-card-row" *ngIf="!config.isAvg">
+        <span class="year-card-key">Total</span>
+        <span class="year-card-val">
+          {{ data?.currentYearTotal?.value !== null && data?.currentYearTotal?.value !== undefined ? config.prefix + (data?.currentYearTotal?.value | number: config.decimals) : '—' }}
+        </span>
+      </div>
+      <div class="year-card-row" *ngIf="config.isAvg">
+        <span class="year-card-key">Best Month</span>
+        <span class="year-card-val">
+          {{ data?.currentYearBest?.value !== null && data?.currentYearBest?.value !== undefined ? config.prefix + (data?.currentYearBest?.value | number: config.decimals) : '—' }}
+          <span class="year-card-sub" *ngIf="data?.currentYearBest?.label">({{ data?.currentYearBest?.label }})</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="year-card previous">
+      <span class="year-card-label">{{ data?.previousYearAvgPerMonth?.label || 'Last Year' }}</span>
+      <div class="year-card-row">
+        <span class="year-card-key">Avg / Month</span>
+        <span class="year-card-val">
+          {{ data?.previousYearAvgPerMonth?.value !== null && data?.previousYearAvgPerMonth?.value !== undefined ? config.prefix + (data?.previousYearAvgPerMonth?.value | number: config.decimals) : '—' }}
+        </span>
+      </div>
+      <div class="year-card-row" *ngIf="!config.isAvg">
+        <span class="year-card-key">Total</span>
+        <span class="year-card-val">
+          {{ data?.previousYearTotal?.value !== null && data?.previousYearTotal?.value !== undefined ? config.prefix + (data?.previousYearTotal?.value | number: config.decimals) : '—' }}
+        </span>
+      </div>
+      <div class="year-card-row" *ngIf="config.isAvg">
+        <span class="year-card-key">Best Month</span>
+        <span class="year-card-val">
+          {{ data?.previousYearBest?.value !== null && data?.previousYearBest?.value !== undefined ? config.prefix + (data?.previousYearBest?.value | number: config.decimals) : '—' }}
+          <span class="year-card-sub" *ngIf="data?.previousYearBest?.label">({{ data?.previousYearBest?.label }})</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>

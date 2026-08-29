@@ -44,8 +44,26 @@ interface MainRow {
   demoCallCount: number;
   assessmentCount: number;
   btCount: number;
+  liveScoringCount: number;
+  etfLiveScoringCount: number;
+  etfBacktestCount: number;
+  intradayCount: number;
+  portfoliosCreatedCount: number;
+  brokerConnectedCount: number;
   usageScore: number;
+  intentScore: number;
+  overallScore: number;
+  status: string | null;
+  latestNote: NoteEntry | null;
 }
+
+interface NoteEntry {
+  text: string;
+  byName: string;
+  createdAt: string;
+}
+
+const LEAD_STATUS_OPTIONS = ['DP', 'Not Qualified', 'Not Interested', 'Pitched', 'Booked', 'Paid'];
 
 interface BookingRow {
   id: string;
@@ -59,6 +77,50 @@ interface BookingRow {
   registered: boolean;
   matchedType: string | null;
   matchedReferalCode: string | null;
+  leadFrom: string | null;
+}
+
+interface UserDetail {
+  id: string;
+  name: string;
+  mobile: string;
+  email: string;
+  type: string;
+  referalCode: string | null;
+  signedUpAt: string | null;
+  lastLoginAt: string | null;
+  portfolioDeployedAt: string | null;
+  usageScore: number;
+  intentScore: number;
+  overallScore: number;
+  featureBreakdown: {
+    liveScoring: number;
+    backtest: number;
+    etfLiveScoring: number;
+    etfBacktest: number;
+    intraday: number;
+    portfoliosCreated: number;
+    brokerConnected: number;
+  };
+  demoCalls: { preferredDate: string | null; preferredTime: string | null; createdAt: string | null; leadFrom: string | null }[];
+  assessments: {
+    status: string | null;
+    registrationStatus: string | null;
+    completedAt: string | null;
+    leadFrom: string | null;
+    district: string | null;
+    state: string | null;
+    occupation: string | null;
+    investmentExperience: string | null;
+    portfolioSize: string | null;
+    challenges: string[];
+    otherChallenge: string | null;
+  }[];
+}
+
+interface LeadSourceCount {
+  leadFrom: string;
+  count: number;
 }
 
 function toDateInput(d: Date): string {
@@ -99,6 +161,21 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
   mainPageSizeOptions = [10, 25, 50, 100, 200];
   mainPageSize = 25;
   mainCurrentPage = 1;
+
+  // Row-click detail modal — full journey for one user
+  showUserDetailModal = false;
+  loadingUserDetail = false;
+  errorUserDetail: string | null = null;
+  selectedUserDetail: UserDetail | null = null;
+
+  // Sales lead status + remarks
+  leadStatusOptions = LEAD_STATUS_OPTIONS;
+  showNotesModal = false;
+  notesModalRow: MainRow | null = null;
+  notesList: NoteEntry[] = [];
+  loadingNotes = false;
+  savingNote = false;
+  newNoteText = '';
 
   // ============ Demo Call tab ============
   demoRows: BookingRow[] = [];
@@ -341,6 +418,114 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
     if (this.mainCurrentPage < this.mainTotalPages) this.mainCurrentPage++;
   }
 
+  openUserDetail(row: MainRow) {
+    this.showUserDetailModal = true;
+    this.loadingUserDetail = true;
+    this.errorUserDetail = null;
+    this.selectedUserDetail = null;
+
+    this.apiService
+      .getUsageAnalysisUserDetail(row.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.selectedUserDetail = response.data;
+          } else {
+            this.errorUserDetail = 'Failed to load user detail';
+          }
+          this.loadingUserDetail = false;
+        },
+        error: (error) => {
+          this.errorUserDetail = 'Failed to load user detail';
+          console.error(error);
+          this.loadingUserDetail = false;
+        },
+      });
+  }
+
+  closeUserDetail() {
+    this.showUserDetailModal = false;
+    this.selectedUserDetail = null;
+  }
+
+  // ============ Sales lead status + remarks ============
+  onStatusChange(row: MainRow, newStatus: string | null) {
+    const previous = row.status;
+    row.status = newStatus;
+    this.apiService
+      .setUsageAnalysisUserStatus(row.id, newStatus)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: () => {
+          row.status = previous;
+          alert('Failed to update status. Please try again.');
+        },
+      });
+  }
+
+  statusClass(status: string | null): string {
+    switch (status) {
+      case 'Paid': return 'status-paid';
+      case 'Booked': return 'status-booked';
+      case 'Pitched': return 'status-pitched';
+      case 'Not Interested': return 'status-not-interested';
+      case 'Not Qualified': return 'status-not-qualified';
+      case 'DP': return 'status-dp';
+      default: return 'status-none';
+    }
+  }
+
+  openNotesModal(row: MainRow) {
+    this.notesModalRow = row;
+    this.showNotesModal = true;
+    this.loadingNotes = true;
+    this.notesList = [];
+    this.newNoteText = '';
+
+    this.apiService
+      .getUsageAnalysisUserNotes(row.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) this.notesList = response.data;
+          this.loadingNotes = false;
+        },
+        error: () => {
+          this.loadingNotes = false;
+        },
+      });
+  }
+
+  closeNotesModal() {
+    this.showNotesModal = false;
+    this.notesModalRow = null;
+  }
+
+  addNote() {
+    const text = this.newNoteText.trim();
+    const row = this.notesModalRow;
+    if (!text || !row) return;
+
+    this.savingNote = true;
+    this.apiService
+      .addUsageAnalysisUserNote(row.id, text)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.savingNote = false;
+          if (response.success && response.data) {
+            this.notesList = response.data;
+            row.latestNote = this.notesList[0] || null;
+            this.newNoteText = '';
+          }
+        },
+        error: () => {
+          this.savingNote = false;
+        },
+      });
+  }
+
   // ============ Demo Call tab ============
   loadDemoCalls() {
     this.loadingDemo = true;
@@ -495,6 +680,20 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
     return counts.map((c) => ({ ...c, isMax: max > 0 && c.count === max }));
   }
 
+  // Ranked, not just the single winner, so the card can show 2nd/3rd place too if useful later —
+  // "untracked" is a real value here (booking came through with no lead source recorded at all),
+  // deliberately not filtered out since knowing how much volume is untracked is itself useful.
+  private topLeadSources(rows: BookingRow[]): LeadSourceCount[] {
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const key = r.leadFrom || 'untracked';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([leadFrom, count]) => ({ leadFrom, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
   private sortBookings(rows: BookingRow[], sortBy: keyof BookingRow, sortOrder: 'asc' | 'desc'): BookingRow[] {
     const sorted = [...rows];
     sorted.sort((a, b) => {
@@ -528,6 +727,10 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
     return this.slotCounts(this.demoFilteredRaw);
   }
 
+  get demoTopLeadSources(): LeadSourceCount[] {
+    return this.topLeadSources(this.demoFilteredRaw);
+  }
+
   get filteredDemoRows(): BookingRow[] {
     const rows = this.demoDedupe ? this.dedupeBookings(this.demoFilteredRaw) : this.demoFilteredRaw;
     return this.sortBookings(rows, this.demoSortBy, this.demoSortOrder);
@@ -552,6 +755,10 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
 
   get assessSlotCounts(): SlotCount[] {
     return this.slotCounts(this.assessFilteredRaw);
+  }
+
+  get assessTopLeadSources(): LeadSourceCount[] {
+    return this.topLeadSources(this.assessFilteredRaw);
   }
 
   get filteredAssessRows(): BookingRow[] {
@@ -692,5 +899,86 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
     if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
     const days = Math.floor(hours / 24);
     return `${days} day${days === 1 ? '' : 's'} ago`;
+  }
+
+  // ============ CSV export (one button, driven by whichever sub-tab is open) ============
+  private csvEscape(val: unknown): string {
+    const str = String(val ?? '');
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  }
+
+  private downloadCsvContent(rows: string[][], filenamePrefix: string) {
+    const csvContent = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `${filenamePrefix}-${dateStamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  private bookingRowsToCsv(rows: BookingRow[]): string[][] {
+    const header = [
+      'Name', 'Mobile', 'Email', 'Preferred Date', 'Preferred Time', 'Status',
+      'Created At (IST)', 'Registered', 'Matched Type', 'Matched Referral Code', 'Lead From',
+    ];
+    const body = rows.map((r) => [
+      this.csvEscape(r.name),
+      r.mobile,
+      this.csvEscape(r.email || ''),
+      r.preferredDate || '',
+      this.csvEscape(r.preferredTime || ''),
+      this.csvEscape(r.status || ''),
+      this.toIST(r.createdAt),
+      r.registered ? 'Yes' : 'No',
+      this.csvEscape(r.matchedType || ''),
+      this.csvEscape(r.matchedReferalCode || ''),
+      this.csvEscape(r.leadFrom || ''),
+    ]);
+    return [header, ...body];
+  }
+
+  downloadCsv() {
+    if (this.activeSubTab === 'main') {
+      const header = [
+        'Name', 'Mobile', 'Email', 'Type', 'Referral Code', 'Signed Up (IST)', 'Days Since Signup',
+        'Last Login', 'Demo Calls', 'Assessment Count', 'BT Count', 'Live Scoring', 'ETF Live Scoring',
+        'ETF Backtest', 'Intraday', 'Portfolios Created', 'Broker Connected', 'Usage Score',
+        'Intent Score', 'Overall Score', 'Status', 'Latest Remark',
+      ];
+      const body = this.sortedMainRows.map((r) => [
+        this.csvEscape(r.name),
+        r.mobile,
+        this.csvEscape(r.email),
+        this.csvEscape(r.type),
+        this.csvEscape(r.referalCode || ''),
+        this.toIST(r.signedUpAt),
+        this.daysSinceSignup(r.signedUpAt),
+        r.lastLoginAt ? this.toIST(r.lastLoginAt) : 'Never',
+        String(r.demoCallCount),
+        String(r.assessmentCount),
+        String(r.btCount),
+        String(r.liveScoringCount),
+        String(r.etfLiveScoringCount),
+        String(r.etfBacktestCount),
+        String(r.intradayCount),
+        String(r.portfoliosCreatedCount),
+        String(r.brokerConnectedCount),
+        String(r.usageScore),
+        String(r.intentScore),
+        String(r.overallScore),
+        this.csvEscape(r.status || ''),
+        this.csvEscape(r.latestNote?.text || ''),
+      ]);
+      this.downloadCsvContent([header, ...body], 'usage-analysis-main');
+    } else if (this.activeSubTab === 'demoCall') {
+      this.downloadCsvContent(this.bookingRowsToCsv(this.filteredDemoRows), 'usage-analysis-demo-calls');
+    } else {
+      this.downloadCsvContent(this.bookingRowsToCsv(this.filteredAssessRows), 'usage-analysis-assessments');
+    }
   }
 }
