@@ -48,6 +48,10 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/live-capital-rate`, { params: this.buildParams(params) });
   }
 
+  getAvgDaysToPortfolioPlot(params: any): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/avg-days-to-portfolio`, { params: this.buildParams(params) });
+  }
+
   getActiveUserFlowPlot(params: any): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/overview-v2/plot/active-user-flow`, { params: this.buildParams(params) });
   }

@@ -110,6 +110,50 @@
     </table>
   </section>
 
+  <!-- Segment 2b: Avg Days to First Real Portfolio -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsActivation)">
+    <h2 class="section-title">
+      Avg. Days to First Real Portfolio
+      <span class="section-note">ℹ️ Real portfolios only, Tribe signups — same cohort as Activation Rate above. Ignores the filter above — uses its own controls below. Users who haven't deployed yet are excluded from that month's average, so a recent month's number is provisional and will likely rise.</span>
+    </h2>
+    <p class="section-subtitle">
+      Per signup month: average days from signup to a user's own first real portfolio (lower is faster)
+    </p>
+
+    <div class="mini-controls">
+      <div class="button-group">
+        <button [class.active]="avgDaysBlock === 'current'" (click)="onAvgDaysBlockChange('current')">Current 3 Months</button>
+        <button [class.active]="avgDaysBlock === 'previous'" (click)="onAvgDaysBlockChange('previous')">Previous 3 Months</button>
+        <button [class.active]="avgDaysBlock === 'custom'" (click)="avgDaysBlock = 'custom'">Custom</button>
+      </div>
+      <ng-container *ngIf="avgDaysBlock === 'custom'">
+        <input type="month" [(ngModel)]="avgDaysStartMonth" (change)="onAvgDaysCustomChange()">
+        <span>to</span>
+        <input type="month" [(ngModel)]="avgDaysEndMonth" (change)="onAvgDaysCustomChange()">
+      </ng-container>
+    </div>
+
+    <div *ngIf="loadingAvgDays" class="loading-inline">Loading...</div>
+    <div *ngIf="!loadingAvgDays && avgDaysRows.length === 0" class="no-data">
+      No signups in this range.
+    </div>
+
+    <div class="days-card-row" *ngIf="!loadingAvgDays && avgDaysRows.length > 0">
+      <div
+        class="days-card"
+        *ngFor="let card of avgDaysCards"
+        [title]="card.deployedCount + ' of ' + card.cohortSize + ' Tribe signups have deployed a real portfolio so far'">
+        <div class="days-card-month">{{ card.monthLabel }}</div>
+        <div class="days-card-value">{{ card.avgDays !== null ? card.avgDays + 'd' : 'N/A' }}</div>
+        <div class="days-card-trend" *ngIf="card.trend" [class.trend-down]="card.trend === 'down'" [class.trend-up]="card.trend === 'up'">
+          <span class="trend-arrow">{{ card.trend === 'down' ? '↓' : (card.trend === 'up' ? '↑' : '→') }}</span>
+          <span class="trend-delta">{{ card.delta! > 0 ? '+' : '' }}{{ card.delta }}d</span>
+        </div>
+        <div class="days-card-sub">{{ card.deployedCount }} / {{ card.cohortSize }} deployed</div>
+      </div>
+    </div>
+  </section>
+
   <!-- Segment 3: Active User Flow -->
   <section class="segment-card" *ngIf="authService.hasPermission(permissions.productMetricsActiveUserCards)">
     <h2 class="section-title">

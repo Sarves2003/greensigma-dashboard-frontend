@@ -52,6 +52,13 @@ export class ProductMetricsComponent implements OnInit, OnDestroy {
   activationRateRows: { monthLabel: string; poolSize: number; activatedCount: number; rate: number | null }[] = [];
   loadingActivation = true;
 
+  // ============ Segment 2b: avg days to first real portfolio (ignores the filter above) ============
+  avgDaysBlock: 'current' | 'previous' | 'custom' = 'current';
+  avgDaysStartMonth = '';
+  avgDaysEndMonth = '';
+  avgDaysRows: { monthLabel: string; cohortSize: number; deployedCount: number; avgDays: number | null }[] = [];
+  loadingAvgDays = true;
+
   // ============ Segment 3: active user flow (DAU / MAU / stickiness) ============
   flowUserType: FlowUserType = 'all';
   monthPeriodOptions: { value: MonthPeriod; label: string }[] = [
@@ -118,6 +125,7 @@ export class ProductMetricsComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadSegment1();
     this.loadActivationRate();
+    this.loadAvgDaysToPortfolio();
     this.loadDau();
     this.loadMau();
     this.loadRatio();
@@ -258,6 +266,70 @@ export class ProductMetricsComponent implements OnInit, OnDestroy {
   onDayWindowChange(days: DayWindow) {
     this.activationDayWindow = days;
     this.loadActivationRate();
+  }
+
+  // ============ Segment 2b: avg days to first real portfolio ============
+  loadAvgDaysToPortfolio() {
+    this.loadingAvgDays = true;
+    const params: any = {};
+
+    if (this.avgDaysBlock === 'current') {
+      params.months = 3;
+    } else if (this.avgDaysBlock === 'previous') {
+      params.startMonth = this.monthKeyOffset(5);
+      params.endMonth = this.monthKeyOffset(3);
+    } else if (this.avgDaysStartMonth && this.avgDaysEndMonth) {
+      params.startMonth = this.avgDaysStartMonth;
+      params.endMonth = this.avgDaysEndMonth;
+    }
+
+    this.apiService
+      .getAvgDaysToPortfolioPlot(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.avgDaysRows = response.data.rows || [];
+          }
+          this.loadingAvgDays = false;
+        },
+        error: (error) => {
+          console.error(error);
+          this.loadingAvgDays = false;
+        },
+      });
+  }
+
+  onAvgDaysBlockChange(block: 'current' | 'previous') {
+    this.avgDaysBlock = block;
+    this.loadAvgDaysToPortfolio();
+  }
+
+  onAvgDaysCustomChange() {
+    if (this.avgDaysStartMonth && this.avgDaysEndMonth) {
+      this.avgDaysBlock = 'custom';
+      this.loadAvgDaysToPortfolio();
+    }
+  }
+
+  // 'down' = fewer days than the previous month = faster = improvement (lower is better here).
+  get avgDaysCards(): {
+    monthLabel: string;
+    cohortSize: number;
+    deployedCount: number;
+    avgDays: number | null;
+    delta: number | null;
+    trend: 'up' | 'down' | 'flat' | null;
+  }[] {
+    return this.avgDaysRows.map((row, i) => {
+      const prev = i > 0 ? this.avgDaysRows[i - 1] : null;
+      if (!prev || row.avgDays === null || prev.avgDays === null) {
+        return { ...row, delta: null, trend: null };
+      }
+      const delta = parseFloat((row.avgDays - prev.avgDays).toFixed(1));
+      const trend: 'up' | 'down' | 'flat' = delta < 0 ? 'down' : delta > 0 ? 'up' : 'flat';
+      return { ...row, delta, trend };
+    });
   }
 
   // ============ Segment 3 ============
