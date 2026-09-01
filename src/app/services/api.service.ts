@@ -316,12 +316,12 @@ export class ApiService {
   }
 
   // GS Health
-  getGsHealthKeyMetrics(): Observable<APIResponse<any>> {
-    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/key-metrics`);
+  getGsHealthKeyMetrics(asOfMonth?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/key-metrics`, { params: this.buildParams({ asOfMonth }) });
   }
 
-  getGsHealthChannelMetrics(channel: 'webinar' | 'leadform'): Observable<APIResponse<any>> {
-    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/channel-metrics`, { params: this.buildParams({ channel }) });
+  getGsHealthChannelMetrics(channel: 'webinar' | 'leadform', asOfMonth?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/channel-metrics`, { params: this.buildParams({ channel, asOfMonth }) });
   }
 
   getGsHealthSummary(params: any): Observable<APIResponse<any>> {

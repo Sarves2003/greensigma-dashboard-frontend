@@ -83,6 +83,33 @@
   margin-bottom: 2rem;
 }
 
+// ============ As-of anchor (shared by Overview/Webinar/Lead Form Key Metrics) ============
+.asof-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+
+  .filter-label {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  input[type='month'] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .section-note {
+    flex-basis: 100%;
+  }
+}
+
 // ============ Trends ============
 .mini-controls {
   display: flex;

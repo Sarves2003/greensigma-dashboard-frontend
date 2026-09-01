@@ -50,6 +50,14 @@ export class GsHealthComponent implements OnInit, OnDestroy {
   loadingKeyMetrics = true;
   keyMetricsError: string | null = null;
 
+  // "As of" anchor for the Key Metrics cards (Overview/Webinar/Lead Form) — shared across all
+  // three sub-tabs since they all mean the same thing by "current month". Auto mode (default)
+  // lets the backend skip a brand-new, still-empty month on its own; Custom lets you pin the
+  // anchor to a specific month (e.g. pick August so a Jun-Aug report doesn't show September's
+  // empty row as "current").
+  asOfMode: 'auto' | 'custom' = 'auto';
+  asOfMonth = '';
+
   channelMetricsCache: Partial<Record<ChannelKey, Record<string, MetricBreakdown>>> = {};
   loadingChannelMetrics = false;
   channelMetricsError: string | null = null;
@@ -99,8 +107,10 @@ export class GsHealthComponent implements OnInit, OnDestroy {
     this.loadingKeyMetrics = true;
     this.keyMetricsError = null;
 
+    const anchor = this.asOfMode === 'custom' && this.asOfMonth ? this.asOfMonth : undefined;
+
     this.apiService
-      .getGsHealthKeyMetrics()
+      .getGsHealthKeyMetrics(anchor)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
@@ -119,6 +129,21 @@ export class GsHealthComponent implements OnInit, OnDestroy {
       });
   }
 
+  // Re-fetches whichever sub-tab is currently visible with the new anchor.
+  onAsOfChange() {
+    if (this.activeSubTab === 'overview') {
+      this.loadKeyMetrics();
+    } else {
+      this.channelMetricsCache = {};
+      this.loadChannelMetrics(this.activeSubTab);
+    }
+  }
+
+  setAsOfMode(mode: 'auto' | 'custom') {
+    this.asOfMode = mode;
+    if (mode === 'auto' || this.asOfMonth) this.onAsOfChange();
+  }
+
   // ============ Channel tabs ============
   setSubTab(tab: SubTab) {
     this.activeSubTab = tab;
@@ -130,9 +155,10 @@ export class GsHealthComponent implements OnInit, OnDestroy {
   private loadChannelMetrics(channel: ChannelKey) {
     this.loadingChannelMetrics = true;
     this.channelMetricsError = null;
+    const anchor = this.asOfMode === 'custom' && this.asOfMonth ? this.asOfMonth : undefined;
 
     this.apiService
-      .getGsHealthChannelMetrics(channel)
+      .getGsHealthChannelMetrics(channel, anchor)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {

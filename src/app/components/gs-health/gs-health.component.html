@@ -3,6 +3,18 @@
     <h1>Revenue Metrics</h1>
   </div>
 
+  <div class="asof-controls">
+    <span class="filter-label">Key Metrics as of:</span>
+    <div class="button-group">
+      <button [class.active]="asOfMode === 'auto'" (click)="setAsOfMode('auto')">Auto (latest available)</button>
+      <button [class.active]="asOfMode === 'custom'" (click)="setAsOfMode('custom')">Custom Month</button>
+    </div>
+    <ng-container *ngIf="asOfMode === 'custom'">
+      <input type="month" [(ngModel)]="asOfMonth" (change)="onAsOfChange()">
+    </ng-container>
+    <span class="section-note">ℹ️ A brand-new month with no data yet is skipped automatically in Auto mode. Pick a Custom month (e.g. August) to treat it as "current" — useful when the real calendar month has just started and hasn't been filled in.</span>
+  </div>
+
   <div class="subtab-switcher">
     <button
       *ngIf="authService.hasPermission(permissions.gsHealthKeyMetrics)"
