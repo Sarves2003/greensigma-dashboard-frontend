@@ -135,6 +135,10 @@ export class ApiService {
     return this.http.post<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/status-override`, { phone, batchDate, status });
   }
 
+  saveEmandateManualInvestment(phone: string, broker: string, investedAmount: number, currentValue: number): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/manual-investment`, { phone, broker, investedAmount, currentValue });
+  }
+
   // Overview (legacy)
   getKPIs(params: any): Observable<APIResponse<KPIResponse[]>> {
     let httpParams = new HttpParams();
@@ -324,8 +328,21 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/key-metrics`, { params: this.buildParams({ asOfMonth }) });
   }
 
-  getGsHealthChannelMetrics(channel: 'webinar' | 'leadform', asOfMonth?: string): Observable<APIResponse<any>> {
+  getGsHealthChannelMetrics(channel: 'webinar' | 'demo' | 'renewal', asOfMonth?: string): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/channel-metrics`, { params: this.buildParams({ channel, asOfMonth }) });
+  }
+
+  getGsHealthMonthSummary(asOfMonth?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/month-summary`, { params: this.buildParams({ asOfMonth }) });
+  }
+
+  getGsHealthRevenueTargets(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/revenue-targets`);
+  }
+
+  // target null (or 0) clears that month's target.
+  saveGsHealthRevenueTarget(monthKey: string, target: number | null): Observable<APIResponse<any>> {
+    return this.http.put<APIResponse<any>>(`${this.baseUrl}/gs-health/revenue-targets/${monthKey}`, { target });
   }
 
   getGsHealthSummary(params: any): Observable<APIResponse<any>> {
@@ -399,11 +416,14 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/segment3`);
   }
 
-  getFunnelBatchDetail(dates?: string[], strictChennai?: boolean): Observable<APIResponse<any[]>> {
+  // Returns { webinar: [...], organic: [...], salesteam: [...] } — one per-batch list per Lead group.
+  // `groups` limits which lists are computed (e.g. ['organic']); the others come back empty.
+  getFunnelBatchDetail(dates?: string[], strictChennai?: boolean, groups?: string[]): Observable<APIResponse<any>> {
     const paramObj: any = {};
     if (dates && dates.length > 0) paramObj.dates = dates.join(',');
     if (strictChennai) paramObj.strictChennai = 'true';
-    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/funnel-analysis/segment3/batch-detail`, { params: this.buildParams(paramObj) });
+    if (groups && groups.length > 0) paramObj.groups = groups.join(',');
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/funnel-analysis/segment3/batch-detail`, { params: this.buildParams(paramObj) });
   }
 
   getLocationUploadStatus(): Observable<APIResponse<any>> {

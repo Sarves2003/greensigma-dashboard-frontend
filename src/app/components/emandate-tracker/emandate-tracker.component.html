@@ -248,6 +248,8 @@
                 <th class="col-center">Payment 3</th>
                 <th class="col-center">Progress</th>
                 <th class="col-center">State</th>
+                <th class="col-center">Last Login</th>
+                <th class="col-center">Live Portfolio</th>
                 <th>Remarks</th>
               </tr>
             </thead>
@@ -298,6 +300,26 @@
                     [class.badge-grey]="row.currentState === 'not_started' || row.currentState === 'not_applicable'">
                     {{ currentStateLabel(row.currentState) }}
                   </span>
+                </td>
+                <td class="col-center">{{ toIST(row.lastLoginAt) }}</td>
+                <td class="col-center">
+                  <button
+                    type="button"
+                    class="badge badge-live-portfolio"
+                    [class.badge-green]="row.livePortfolio"
+                    [class.badge-amber]="!row.livePortfolio && row.manualInvestment"
+                    [class.badge-grey]="!row.livePortfolio && !row.manualInvestment"
+                    (click)="row.livePortfolio ? openPortfolioModal(row) : openManualInvestModal(row)">
+                    <ng-container *ngIf="row.livePortfolio; else noLivePortfolio">
+                      {{ row.livePortfolio.broker | uppercase }} ({{ row.livePortfolio.count }})
+                    </ng-container>
+                    <ng-template #noLivePortfolio>
+                      <ng-container *ngIf="row.manualInvestment; else notDeployed">
+                        {{ row.manualInvestment.broker }} · Manual
+                      </ng-container>
+                      <ng-template #notDeployed>Not Deployed</ng-template>
+                    </ng-template>
+                  </button>
                 </td>
                 <td>
                   <input
@@ -392,6 +414,83 @@
           </table>
         </div>
         <p class="no-data" *ngIf="overviewBucketUsers.length === 0">No users in this bucket.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Portfolio detail — view-only, populated straight from Live P&L's own computation -->
+  <div class="modal-overlay" *ngIf="showPortfolioModal" (click)="closePortfolioModal()">
+    <div class="modal-content detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Live Portfolio — {{ portfolioModalRow?.name }}</h2>
+        <button class="btn-close" (click)="closePortfolioModal()">✕</button>
+      </div>
+      <div class="modal-body" *ngIf="portfolioModalRow?.livePortfolio as lp">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Portfolio Name</th>
+                <th class="col-center">Broker</th>
+                <th class="col-num">Invested (₹)</th>
+                <th class="col-num">Current Value (₹)</th>
+                <th class="col-num">P&amp;L (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of lp.portfolios">
+                <td>{{ p.name }}</td>
+                <td class="col-center">{{ p.broker | uppercase }}</td>
+                <td class="col-num">{{ p.invested | number: '1.0-0' }}</td>
+                <td class="col-num">{{ p.current | number: '1.0-0' }}</td>
+                <td class="col-num" [class.positive]="p.pnl >= 0" [class.negative]="p.pnl < 0">{{ p.pnl | number: '1.0-0' }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="2">Total ({{ lp.count }} portfolio{{ lp.count === 1 ? '' : 's' }})</td>
+                <td class="col-num">{{ lp.totalInvested | number: '1.0-0' }}</td>
+                <td class="col-num">{{ lp.totalCurrent | number: '1.0-0' }}</td>
+                <td class="col-num" [class.positive]="lp.totalPnl >= 0" [class.negative]="lp.totalPnl < 0">{{ lp.totalPnl | number: '1.0-0' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual investment — for anyone with no real tracked portfolio, in case they invested
+       manually through a broker GreenSigma doesn't integrate with. Self-reported, so kept
+       visually distinct (amber, "· Manual" label) from a verified Live Portfolio. -->
+  <div class="modal-overlay" *ngIf="showManualInvestModal" (click)="closeManualInvestModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Invested Elsewhere — {{ manualInvestRow?.name }}</h2>
+        <button class="btn-close" (click)="closeManualInvestModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="section-note">No real portfolio found on our tracked brokers (Kite/Zebu). If this person invested manually through a different broker, record it here.</p>
+        <div class="manual-invest-form">
+          <label>
+            Broker Name
+            <input type="text" [(ngModel)]="manualInvestForm.broker" placeholder="e.g. Zerodha, Angel One, Groww...">
+          </label>
+          <label>
+            Invested Amount (₹)
+            <input type="number" [(ngModel)]="manualInvestForm.investedAmount" min="0">
+          </label>
+          <label>
+            Current Value (₹)
+            <input type="number" [(ngModel)]="manualInvestForm.currentValue" min="0">
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" (click)="closeManualInvestModal()">Cancel</button>
+          <button class="btn-save" [disabled]="!manualInvestForm.broker.trim() || savingManualInvest" (click)="saveManualInvestment()">
+            {{ savingManualInvest ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>

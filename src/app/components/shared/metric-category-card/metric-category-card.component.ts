@@ -29,6 +29,8 @@ export interface MetricCategoryConfig {
   lowerIsBetter: boolean;
   accent: string;
   accentBg: string;
+  // Optional one-line explainer shown under the title (e.g. what a spend figure is made of).
+  description?: string;
 }
 
 interface Delta {

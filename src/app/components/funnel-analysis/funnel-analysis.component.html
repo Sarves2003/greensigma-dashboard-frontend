@@ -208,121 +208,35 @@
         <span *ngIf="unresolvedCount > 0" class="unresolved-note">· {{ unresolvedCount }} could not be matched to any batch date and were excluded</span>
       </div>
 
-      <div class="mini-controls">
-        <span class="filter-label">Showing:</span>
-        <div class="button-group">
-          <button [class.active]="batchDetailMode === 'latest2'" (click)="onBatchDetailModeChange('latest2')">Latest 2 Webinars</button>
-          <button [class.active]="batchDetailMode === 'custom'" (click)="onBatchDetailModeChange('custom')">Custom</button>
-        </div>
+      <ng-container *ngTemplateOutlet="leadCardBody; context: { $implicit: 'webinar', showName: true, paidLabel: 'Total Paid (Webinar)' }"></ng-container>
+    </ng-container>
+  </section>
 
-        <label
-          class="checkbox-label strict-chennai-toggle"
-          title="Unchecked: also counts nearby Chennai-metro districts as Chennai — Chengalpattu, Tiruvallur, Kanchipuram, Tambaram, Ambattur, Avadi, Poonamallee, Sriperumbudur, Pallavaram, Chromepet, Maraimalai Nagar. Checked: only an exact 'Chennai' match counts.">
-          <input type="checkbox" [(ngModel)]="strictChennai" (change)="onStrictChennaiChange()">
-          Explicitly Chennai only
-        </label>
-      </div>
+  <!-- Organic: paid users whose Lead is anything other than Webinar / Sales Team -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
+    <h2 class="section-title">
+      Organic
+      <span class="section-note">ℹ️ Paid users whose Lead is anything other than Webinar or Sales Team (e.g. Organic, GS Momentum). Registrant numbers come from the registrations sheet, which has no Lead column, so they are the same as in the Webinar card. Has its own "Showing" filter.</span>
+    </h2>
+    <ng-container *ngTemplateOutlet="leadCardBody; context: { $implicit: 'organic', showName: false, paidLabel: 'Total Paid (Organic)' }"></ng-container>
+  </section>
 
-      <div class="custom-date-picker" *ngIf="batchDetailMode === 'custom'">
-        <span class="date-chip custom-date-chip"
-          *ngFor="let d of webinarDates"
-          [class.selected]="isCustomDateSelected(d.date.slice(0,10))"
-          (click)="toggleCustomDate(d.date.slice(0,10))">
-          {{ d.label }}
-        </span>
-      </div>
+  <!-- Sales Team: paid users tagged Salesteam in the Lead column -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
+    <h2 class="section-title">
+      Sales Team
+      <span class="section-note">ℹ️ Paid users tagged "Salesteam" in the Lead column. Registrant numbers come from the registrations sheet, which has no Lead column, so they are the same as in the Webinar card. Has its own "Showing" filter.</span>
+    </h2>
+    <ng-container *ngTemplateOutlet="leadCardBody; context: { $implicit: 'salesteam', showName: false, paidLabel: 'Total Paid (Sales Team)' }"></ng-container>
+  </section>
 
-      <div *ngIf="loadingBatchDetail" class="loading-inline">Loading batch detail...</div>
-      <div *ngIf="errorBatchDetail" class="error">{{ errorBatchDetail }}</div>
-
-      <div class="batch-detail-list" *ngIf="!loadingBatchDetail && !errorBatchDetail">
-        <div class="batch-detail-block" *ngFor="let batch of batchDetails">
-          <h3 class="batch-detail-title">{{ batch.label }}</h3>
-
-          <div class="batch-detail-cards">
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">📝</span>
-              <span class="batch-detail-value">{{ batch.registrants }}</span>
-              <span class="batch-detail-label">Total Registered</span>
-            </div>
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">💳</span>
-              <span class="batch-detail-value">{{ batch.paid }}</span>
-              <span class="batch-detail-label">Total Paid (any funnel)</span>
-            </div>
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">⏱️</span>
-              <span class="batch-detail-value">{{ batch.avgDaysToPay !== null ? batch.avgDaysToPay : 'N/A' }}</span>
-              <span class="batch-detail-label">Avg Days to Become Paid</span>
-            </div>
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">🎯</span>
-              <span class="batch-detail-value">{{ pctFromCurrentWebinar(batch) }}% <span class="batch-detail-raw">({{ currentWebinarCount(batch) }}/{{ batch.paid }})</span></span>
-              <span class="batch-detail-label">Paid From Current Webinar</span>
-            </div>
-          </div>
-
-          <div class="metric-subsection-label">Registrant Location (Chennai vs. Non-Chennai)</div>
-          <div class="batch-detail-cards">
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">📍</span>
-              <span class="batch-detail-value">{{ batch.chennaiRegistrantPct }}% <span class="batch-detail-raw">({{ batch.chennaiRegistrants }})</span></span>
-              <span class="batch-detail-label">Registrants — Chennai</span>
-            </div>
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">🗺️</span>
-              <span class="batch-detail-value">{{ batch.nonChennaiRegistrantPct }}% <span class="batch-detail-raw">({{ batch.nonChennaiRegistrants }})</span></span>
-              <span class="batch-detail-label">Registrants — Non-Chennai</span>
-            </div>
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">✅</span>
-              <span class="batch-detail-value">
-                {{ batch.chennaiConversionPct !== null ? batch.chennaiConversionPct + '%' : 'N/A' }}
-                <span class="batch-detail-raw">({{ batch.chennaiPaidCount }}/{{ batch.chennaiRegistrants }})</span>
-              </span>
-              <span class="batch-detail-label">Chennai Conversion Rate</span>
-            </div>
-            <div class="batch-detail-card">
-              <span class="batch-detail-icon">✅</span>
-              <span class="batch-detail-value">
-                {{ batch.nonChennaiConversionPct !== null ? batch.nonChennaiConversionPct + '%' : 'N/A' }}
-                <span class="batch-detail-raw">({{ batch.nonChennaiPaidCount }}/{{ batch.nonChennaiRegistrants }})</span>
-              </span>
-              <span class="batch-detail-label">Non-Chennai Conversion Rate</span>
-            </div>
-          </div>
-
-          <div class="table-scroll" *ngIf="batch.breakdown.length > 0">
-            <table class="data-table mini-breakdown-table clickable-rows">
-              <thead>
-                <tr>
-                  <th>Source</th>
-                  <th class="col-num">Paid Users</th>
-                  <th class="col-num">% Contribution</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  *ngFor="let row of batch.breakdown"
-                  (click)="openPeopleModal(batch.label, row)"
-                  [style.backgroundColor]="gradientBackground(row.percentage, maxPercentageIn(batch))">
-                  <td>
-                    <span class="badge" [class.badge-green]="row.source === 'Current Webinar'" [class.badge-blue]="row.source !== 'Current Webinar' && row.source !== 'Unknown'" [class.badge-grey]="row.source === 'Unknown'">
-                      {{ row.source }}
-                    </span>
-                  </td>
-                  <td class="col-num">{{ row.count }}</td>
-                  <td class="col-num rate-cell">{{ row.percentage }}%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div *ngIf="batch.breakdown.length === 0" class="no-data">No paid conversions for this batch.</div>
-        </div>
-
-        <div *ngIf="batchDetails.length === 0" class="no-data">Pick a webinar date to see its detail.</div>
-      </div>
-
+  <!-- Attempt numbers + source contribution: moved to the end, deliberately last on the page -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
+    <h2 class="section-title">
+      Attempts &amp; Source Contribution
+      <span class="section-note">ℹ️ The attempt table covers every paid user. The source chart combines whatever the Webinar, Organic and Sales Team cards above are currently showing.</span>
+    </h2>
+    <ng-container *ngIf="!loadingSegment3 && !errorSegment3">
       <div class="metric-subsection-label">Conversion by Attempt Number</div>
       <p class="section-subtitle">
         Of the {{ attemptDataAvailable }} conversions with known registration history, how many webinar sign-ups it took before they paid.
@@ -399,4 +313,133 @@
       </div>
     </div>
   </div>
+  <!-- One per-batch block list, reused by the Webinar / Organic / Sales Team cards -->
+  <!-- One card's own "Showing" filter + its batch list. `group` picks which of the three cards' state to use. -->
+  <ng-template #leadCardBody let-group let-showName="showName" let-paidLabel="paidLabel">
+    <div class="mini-controls">
+      <span class="filter-label">Showing:</span>
+      <div class="button-group">
+        <button [class.active]="card(group).mode === 'latest'" (click)="onLeadModeChange(group, 'latest')">Latest Webinar</button>
+        <button [class.active]="card(group).mode === 'custom'" (click)="onLeadModeChange(group, 'custom')">Custom</button>
+      </div>
+
+      <label
+        class="checkbox-label strict-chennai-toggle"
+        title="Unchecked: also counts nearby Chennai-metro districts as Chennai — Chengalpattu, Tiruvallur, Kanchipuram, Tambaram, Ambattur, Avadi, Poonamallee, Sriperumbudur, Pallavaram, Chromepet, Maraimalai Nagar. Checked: only an exact 'Chennai' match counts.">
+        <input type="checkbox" [ngModel]="card(group).strictChennai" (ngModelChange)="card(group).strictChennai = $event; onLeadStrictChennaiChange(group)">
+        Explicitly Chennai only
+      </label>
+    </div>
+
+    <div class="custom-date-picker" *ngIf="card(group).mode === 'custom'">
+      <span class="date-chip custom-date-chip"
+        *ngFor="let d of webinarDates"
+        [class.selected]="isLeadCustomDateSelected(group, d.date.slice(0,10))"
+        (click)="toggleLeadCustomDate(group, d.date.slice(0,10))">
+        {{ d.label }}
+      </span>
+    </div>
+
+    <div *ngIf="card(group).loading" class="loading-inline">Loading batch detail...</div>
+    <div *ngIf="card(group).error" class="error">{{ card(group).error }}</div>
+
+    <ng-container *ngIf="!card(group).loading && !card(group).error">
+      <ng-container *ngTemplateOutlet="batchList; context: { $implicit: card(group).batches, showName: showName, paidLabel: paidLabel, emptyMsg: 'Pick a webinar date to see its detail.' }"></ng-container>
+    </ng-container>
+  </ng-template>
+
+  <ng-template #batchList let-batches let-showName="showName" let-paidLabel="paidLabel" let-emptyMsg="emptyMsg">
+    <div class="batch-detail-list">
+      <div class="batch-detail-block" *ngFor="let batch of batches">
+        <div class="batch-detail-title-row">
+          <h3 class="batch-detail-title">{{ batch.label }}</h3>
+          <ng-container *ngIf="showName">
+            <span class="webinar-name-tab" *ngFor="let name of batch.webinarNames">{{ name }}</span>
+          </ng-container>
+        </div>
+
+        <div class="batch-detail-cards">
+          <div class="batch-detail-card">
+            <span class="batch-detail-icon">📝</span>
+            <span class="batch-detail-value">{{ batch.registrants }}</span>
+            <span class="batch-detail-label">Total Registered</span>
+          </div>
+          <div class="batch-detail-card">
+            <span class="batch-detail-icon">💳</span>
+            <span class="batch-detail-value">{{ batch.paid }}</span>
+            <span class="batch-detail-label">{{ paidLabel }}</span>
+          </div>
+          <div class="batch-detail-card">
+            <span class="batch-detail-icon">⏱️</span>
+            <span class="batch-detail-value">{{ batch.avgDaysToPay !== null ? batch.avgDaysToPay : 'N/A' }}</span>
+            <span class="batch-detail-label">Avg Days to Become Paid</span>
+          </div>
+          <div class="batch-detail-card">
+            <span class="batch-detail-icon">🎯</span>
+            <span class="batch-detail-value">{{ pctFromCurrentWebinar(batch) }}% <span class="batch-detail-raw">({{ currentWebinarCount(batch) }}/{{ batch.paid }})</span></span>
+            <span class="batch-detail-label">Paid From Current Webinar</span>
+          </div>
+        </div>
+
+        <div class="metric-subsection-label">Registrant Location (Chennai vs. Non-Chennai)</div>
+        <div class="batch-detail-cards">
+          <div class="batch-detail-card">
+            <span class="batch-detail-icon">📍</span>
+            <span class="batch-detail-value">{{ batch.chennaiRegistrantPct }}% <span class="batch-detail-raw">({{ batch.chennaiRegistrants }})</span></span>
+            <span class="batch-detail-label">Registrants — Chennai</span>
+          </div>
+          <div class="batch-detail-card">
+            <span class="batch-detail-icon">🗺️</span>
+            <span class="batch-detail-value">{{ batch.nonChennaiRegistrantPct }}% <span class="batch-detail-raw">({{ batch.nonChennaiRegistrants }})</span></span>
+            <span class="batch-detail-label">Registrants — Non-Chennai</span>
+          </div>
+          <div class="batch-detail-card" title="All paid users credited to this batch from Chennai (including people who registered for an earlier webinar) ÷ Chennai registrants of this webinar. N/A when nobody registered for this webinar in the registrations sheet.">
+            <span class="batch-detail-icon">✅</span>
+            <span class="batch-detail-value">
+              {{ batch.chennaiConversionPct !== null ? batch.chennaiConversionPct + '%' : 'N/A' }}
+              <span class="batch-detail-raw">({{ batch.chennaiPaidCount }}/{{ batch.chennaiRegistrants }})</span>
+            </span>
+            <span class="batch-detail-label">Chennai Conversion Rate</span>
+          </div>
+          <div class="batch-detail-card" title="All paid users credited to this batch from outside Chennai (including people who registered for an earlier webinar) ÷ Non-Chennai registrants of this webinar. N/A when nobody registered for this webinar in the registrations sheet.">
+            <span class="batch-detail-icon">✅</span>
+            <span class="batch-detail-value">
+              {{ batch.nonChennaiConversionPct !== null ? batch.nonChennaiConversionPct + '%' : 'N/A' }}
+              <span class="batch-detail-raw">({{ batch.nonChennaiPaidCount }}/{{ batch.nonChennaiRegistrants }})</span>
+            </span>
+            <span class="batch-detail-label">Non-Chennai Conversion Rate</span>
+          </div>
+        </div>
+
+        <div class="table-scroll" *ngIf="batch.breakdown.length > 0">
+          <table class="data-table mini-breakdown-table clickable-rows">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th class="col-num">Paid Users</th>
+                <th class="col-num">% Contribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let row of batch.breakdown"
+                (click)="openPeopleModal(batch.label, row)"
+                [style.backgroundColor]="gradientBackground(row.percentage, maxPercentageIn(batch))">
+                <td>
+                  <span class="badge" [class.badge-green]="row.source === 'Current Webinar'" [class.badge-blue]="row.source !== 'Current Webinar' && row.source !== 'Unknown'" [class.badge-grey]="row.source === 'Unknown'">
+                    {{ row.source }}
+                  </span>
+                </td>
+                <td class="col-num">{{ row.count }}</td>
+                <td class="col-num rate-cell">{{ row.percentage }}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="batch.breakdown.length === 0" class="no-data">No paid conversions for this batch.</div>
+      </div>
+
+      <div *ngIf="batches.length === 0" class="no-data">{{ emptyMsg }}</div>
+    </div>
+  </ng-template>
 </div>

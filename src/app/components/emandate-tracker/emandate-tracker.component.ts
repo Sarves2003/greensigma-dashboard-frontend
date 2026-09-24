@@ -26,6 +26,30 @@ interface EmandateDayPayment {
   status: 'captured' | 'refunded' | null;
 }
 
+interface EmandatePortfolioLine {
+  name: string;
+  broker: string;
+  invested: number;
+  current: number;
+  pnl: number;
+}
+
+interface EmandatePortfolioSummary {
+  broker: string;
+  count: number;
+  totalInvested: number;
+  totalCurrent: number;
+  totalPnl: number;
+  portfolios: EmandatePortfolioLine[];
+}
+
+interface EmandateManualInvestment {
+  broker: string;
+  investedAmount: number;
+  currentValue: number;
+  updatedAt: string;
+}
+
 interface EmandateRow {
   name: string;
   phone: string;
@@ -40,6 +64,9 @@ interface EmandateRow {
   settled: boolean;
   paymentDoneCount: number;
   remark: string;
+  lastLoginAt: string | null;
+  livePortfolio: EmandatePortfolioSummary | null;
+  manualInvestment: EmandateManualInvestment | null;
 }
 
 interface EmandateSummary {
@@ -159,6 +186,16 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
   showBucketModal = false;
   bucketModalTitle = '';
   bucketModalRows: EmandateRow[] = [];
+
+  // Live Portfolio column: view popup for a real tracked portfolio, or an editable form when the
+  // person has none on our tracked brokers and might have invested manually elsewhere.
+  showPortfolioModal = false;
+  portfolioModalRow: EmandateRow | null = null;
+
+  showManualInvestModal = false;
+  manualInvestRow: EmandateRow | null = null;
+  manualInvestForm = { broker: '', investedAmount: 0, currentValue: 0 };
+  savingManualInvest = false;
 
   // Defined once as bound instance properties (not inline template lambdas) so they're stable
   // references across change-detection cycles, per the established Angular perf pattern in this
@@ -535,6 +572,55 @@ export class EmandateTrackerComponent implements OnInit, OnDestroy {
 
   closeBucketModal() {
     this.showBucketModal = false;
+  }
+
+  openPortfolioModal(row: EmandateRow) {
+    this.portfolioModalRow = row;
+    this.showPortfolioModal = true;
+  }
+
+  closePortfolioModal() {
+    this.showPortfolioModal = false;
+    this.portfolioModalRow = null;
+  }
+
+  openManualInvestModal(row: EmandateRow) {
+    this.manualInvestRow = row;
+    this.manualInvestForm = row.manualInvestment
+      ? { broker: row.manualInvestment.broker, investedAmount: row.manualInvestment.investedAmount, currentValue: row.manualInvestment.currentValue }
+      : { broker: '', investedAmount: 0, currentValue: 0 };
+    this.showManualInvestModal = true;
+  }
+
+  closeManualInvestModal() {
+    this.showManualInvestModal = false;
+    this.manualInvestRow = null;
+  }
+
+  saveManualInvestment() {
+    const row = this.manualInvestRow;
+    if (!row || !this.manualInvestForm.broker.trim()) return;
+
+    this.savingManualInvest = true;
+    this.apiService
+      .saveEmandateManualInvestment(row.phone, this.manualInvestForm.broker.trim(), this.manualInvestForm.investedAmount, this.manualInvestForm.currentValue)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          row.manualInvestment = {
+            broker: this.manualInvestForm.broker.trim(),
+            investedAmount: this.manualInvestForm.investedAmount,
+            currentValue: this.manualInvestForm.currentValue,
+            updatedAt: new Date().toISOString(),
+          };
+          this.savingManualInvest = false;
+          this.closeManualInvestModal();
+        },
+        error: (error) => {
+          console.error(error);
+          this.savingManualInvest = false;
+        },
+      });
   }
 
   onStatusChange(row: EmandateRow) {

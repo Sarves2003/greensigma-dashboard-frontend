@@ -1,7 +1,10 @@
 <section class="metric-card" [style.borderLeftColor]="config.accent">
   <div class="metric-header">
     <span class="metric-icon" [style.backgroundColor]="config.accentBg" [style.color]="config.accent">{{ config.icon }}</span>
-    <h3 class="metric-title">{{ config.label }}</h3>
+    <div class="metric-heading">
+      <h3 class="metric-title">{{ config.label }}</h3>
+      <span class="metric-desc" *ngIf="config.description">{{ config.description }}</span>
+    </div>
   </div>
 
   <div class="metric-hero">

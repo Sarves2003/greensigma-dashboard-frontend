@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { switchMap, takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
@@ -56,8 +56,33 @@ interface BatchBreakdownRow {
   people: BreakdownPerson[];
 }
 
+// Webinar / Organic / Sales Team split of the per-batch detail (by the paid sheet's Lead column).
+type LeadGroup = 'webinar' | 'organic' | 'salesteam';
+
+const LEAD_GROUPS: LeadGroup[] = ['webinar', 'organic', 'salesteam'];
+
+// Each of the three cards has its own independent "Showing" filter and its own loaded data.
+interface LeadCardState {
+  mode: BatchDetailMode;
+  customDates: string[];
+  // Unchecked (default) = broad: Chennai-metro districts (Chengalpattu, Tiruvallur, Kanchipuram,
+  // etc.) count as Chennai too. Checked = strict: only an exact "Chennai" match counts.
+  strictChennai: boolean;
+  batches: BatchDetail[];
+  loading: boolean;
+  error: string | null;
+}
+
+// Just what the source-contribution chart needs, merged across all three Lead groups per batch.
+interface ChartBatch {
+  label: string;
+  paid: number;
+  breakdown: { source: string; count: number; percentage: number }[];
+}
+
 interface BatchDetail {
   label: string;
+  webinarNames: string[];
   registrants: number;
   paid: number;
   avgDaysToPay: number | null;
@@ -74,7 +99,7 @@ interface BatchDetail {
 
 type SourceChartMode = 'total' | 'avg';
 
-type BatchDetailMode = 'latest2' | 'custom';
+type BatchDetailMode = 'latest' | 'custom';
 
 @Component({
   selector: 'app-funnel-analysis',
@@ -110,15 +135,17 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
   loadingSegment3 = true;
   errorSegment3: string | null = null;
 
-  // ============ Segment 3: per-batch detail (latest 2 by default, or custom picks) ============
-  batchDetailMode: BatchDetailMode = 'latest2';
-  selectedCustomDates: string[] = [];
-  // Unchecked (default) = broad: Chennai-metro districts (Chengalpattu, Tiruvallur, Kanchipuram,
-  // etc.) count as Chennai too. Checked = strict: only an exact "Chennai" match counts.
-  strictChennai = false;
-  batchDetails: BatchDetail[] = [];
-  loadingBatchDetail = true;
-  errorBatchDetail: string | null = null;
+  // ============ Segment 3: per-batch detail (latest webinar by default, or custom picks) ============
+  // One independent filter + data set per card: Webinar (Lead starts with "Webinar"), Organic and
+  // Sales Team. chartBatches merges whatever the three cards currently show, per batch, so the
+  // moved source-contribution chart still covers every paid user shown above.
+  leadCards: Record<LeadGroup, LeadCardState> = {
+    webinar: this.newLeadCard(),
+    organic: this.newLeadCard(),
+    salesteam: this.newLeadCard(),
+  };
+  private leadCardSubs: Partial<Record<LeadGroup, Subscription>> = {};
+  chartBatches: ChartBatch[] = [];
 
   showPeopleModal = false;
   selectedBatchLabel = '';
@@ -192,7 +219,7 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
     this.loadSegment1();
     this.loadSegment2();
     this.loadSegment3();
-    this.loadBatchDetail();
+    this.loadAllLeadCards();
     this.loadWebinarDates();
     this.loadLocationUploadStatus();
   }
@@ -279,61 +306,108 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
   }
 
   // ============ Segment 3: per-batch detail ============
-  loadBatchDetail() {
-    this.loadingBatchDetail = true;
-    this.errorBatchDetail = null;
+  private newLeadCard(): LeadCardState {
+    return { mode: 'latest', customDates: [], strictChennai: false, batches: [], loading: true, error: null };
+  }
 
-    const dates = this.batchDetailMode === 'custom' ? this.selectedCustomDates : undefined;
+  // Template helper: the ng-template context variable is untyped, so it goes through here.
+  card(group: LeadGroup): LeadCardState {
+    return this.leadCards[group];
+  }
 
-    this.apiService
-      .getFunnelBatchDetail(dates, this.strictChennai)
+  loadAllLeadCards() {
+    LEAD_GROUPS.forEach((g) => this.loadLeadCard(g));
+  }
+
+  loadLeadCard(group: LeadGroup) {
+    const card = this.leadCards[group];
+    card.loading = true;
+    card.error = null;
+
+    const dates = card.mode === 'custom' ? card.customDates : undefined;
+
+    // A newer request for the same card supersedes any still in flight, so a slow earlier
+    // response can't overwrite the latest selection.
+    this.leadCardSubs[group]?.unsubscribe();
+    this.leadCardSubs[group] = this.apiService
+      .getFunnelBatchDetail(dates, card.strictChennai, [group])
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
           if (response.success && response.data) {
-            this.batchDetails = response.data;
+            card.batches = (response.data[group] as BatchDetail[]) || [];
           } else {
-            this.errorBatchDetail = 'Failed to load batch detail';
+            card.error = 'Failed to load batch detail';
           }
-          this.loadingBatchDetail = false;
+          card.loading = false;
+          this.rebuildChart();
         },
         error: (error) => {
-          this.errorBatchDetail = 'Failed to load batch detail';
+          card.error = 'Failed to load batch detail';
           console.error(error);
-          this.loadingBatchDetail = false;
+          card.loading = false;
         },
       });
   }
 
-  onBatchDetailModeChange(mode: BatchDetailMode) {
-    this.batchDetailMode = mode;
-    if (mode === 'latest2' || this.selectedCustomDates.length > 0) {
-      this.loadBatchDetail();
+  onLeadModeChange(group: LeadGroup, mode: BatchDetailMode) {
+    const card = this.leadCards[group];
+    card.mode = mode;
+    if (mode === 'latest' || card.customDates.length > 0) {
+      this.loadLeadCard(group);
     }
   }
 
-  onStrictChennaiChange() {
-    if (this.batchDetailMode === 'latest2' || this.selectedCustomDates.length > 0) {
-      this.loadBatchDetail();
+  onLeadStrictChennaiChange(group: LeadGroup) {
+    const card = this.leadCards[group];
+    if (card.mode === 'latest' || card.customDates.length > 0) {
+      this.loadLeadCard(group);
     }
   }
 
-  isCustomDateSelected(dateKey: string): boolean {
-    return this.selectedCustomDates.includes(dateKey);
+  isLeadCustomDateSelected(group: LeadGroup, dateKey: string): boolean {
+    return this.leadCards[group].customDates.includes(dateKey);
   }
 
-  toggleCustomDate(dateKey: string) {
-    const idx = this.selectedCustomDates.indexOf(dateKey);
+  toggleLeadCustomDate(group: LeadGroup, dateKey: string) {
+    const card = this.leadCards[group];
+    const idx = card.customDates.indexOf(dateKey);
     if (idx >= 0) {
-      this.selectedCustomDates.splice(idx, 1);
+      card.customDates.splice(idx, 1);
     } else {
-      this.selectedCustomDates.push(dateKey);
+      card.customDates.push(dateKey);
     }
-    if (this.selectedCustomDates.length > 0) {
-      this.loadBatchDetail();
+    if (card.customDates.length > 0) {
+      this.loadLeadCard(group);
     } else {
-      this.batchDetails = [];
+      this.leadCardSubs[group]?.unsubscribe();
+      card.batches = [];
+      card.loading = false;
+      this.rebuildChart();
     }
+  }
+
+  // Adds the shown Lead groups back together per batch (paid summed, same-source counts summed,
+  // percentages recomputed against the combined paid) — an all-funnel view for the chart.
+  private rebuildChart() {
+    const byLabel = new Map<string, BatchDetail[]>();
+    LEAD_GROUPS.forEach((g) =>
+      this.leadCards[g].batches.forEach((b) => {
+        if (!byLabel.has(b.label)) byLabel.set(b.label, []);
+        byLabel.get(b.label)!.push(b);
+      })
+    );
+    this.chartBatches = [...byLabel.entries()].map(([label, parts]) => {
+      const paid = parts.reduce((sum, p) => sum + p.paid, 0);
+      const counts = new Map<string, number>();
+      parts.forEach((p) => p.breakdown.forEach((r) => counts.set(r.source, (counts.get(r.source) || 0) + r.count)));
+      const breakdown = [...counts.entries()].map(([source, count]) => ({
+        source,
+        count,
+        percentage: paid > 0 ? parseFloat(((count / paid) * 100).toFixed(1)) : 0,
+      }));
+      return { label, paid, breakdown };
+    });
   }
 
   openPeopleModal(batchLabel: string, row: BatchBreakdownRow) {
@@ -379,28 +453,29 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
   // doesn't appear count as 0%, so a source that only shows up once in a 2-batch view reads as
   // "half the time," not inflated to its single-batch percentage).
   private get sourceChartData(): { category: string; value: number }[] {
-    if (this.batchDetails.length === 0) return [];
+    const batches = this.chartBatches;
+    if (batches.length === 0) return [];
 
     const allSources = new Set<string>();
-    this.batchDetails.forEach((b) => b.breakdown.forEach((r) => allSources.add(r.source)));
+    batches.forEach((b) => b.breakdown.forEach((r) => allSources.add(r.source)));
 
-    const totalPaidAcrossBatches = this.batchDetails.reduce((sum, b) => sum + b.paid, 0);
+    const totalPaidAcrossBatches = batches.reduce((sum, b) => sum + b.paid, 0);
 
     return [...allSources]
       .map((source) => {
         let value: number;
         if (this.sourceChartMode === 'total') {
-          const totalCount = this.batchDetails.reduce(
+          const totalCount = batches.reduce(
             (sum, b) => sum + (b.breakdown.find((r) => r.source === source)?.count || 0),
             0
           );
           value = totalPaidAcrossBatches > 0 ? parseFloat(((totalCount / totalPaidAcrossBatches) * 100).toFixed(1)) : 0;
         } else {
-          const sumPct = this.batchDetails.reduce(
+          const sumPct = batches.reduce(
             (sum, b) => sum + (b.breakdown.find((r) => r.source === source)?.percentage || 0),
             0
           );
-          value = parseFloat((sumPct / this.batchDetails.length).toFixed(1));
+          value = parseFloat((sumPct / batches.length).toFixed(1));
         }
         return { category: source, value };
       })
@@ -452,7 +527,7 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
             this.webinarDates = response.data;
             this.newDateInput = '';
             this.loadSegment3();
-            this.loadBatchDetail();
+            this.loadAllLeadCards();
           }
         },
         error: (error) => {
@@ -471,7 +546,7 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
           if (response.success && response.data) {
             this.webinarDates = response.data;
             this.loadSegment3();
-            this.loadBatchDetail();
+            this.loadAllLeadCards();
           }
         },
         error: (error) => {
@@ -562,7 +637,7 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
             this.locationUploadHeaders = [];
             this.locationUploadPreviewRows = [];
             this.loadLocationUploadStatus();
-            this.loadBatchDetail();
+            this.loadAllLeadCards();
           } else {
             this.locationUploadError = 'Failed to save this data';
           }

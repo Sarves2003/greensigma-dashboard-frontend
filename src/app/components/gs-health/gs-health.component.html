@@ -22,7 +22,7 @@
       class="subtab-btn"
       [class.active]="activeSubTab === 'overview'"
       (click)="setSubTab('overview')">
-      <span class="subtab-icon">📊</span> Overview
+      <span class="subtab-icon">📊</span> Overall
     </button>
     <button
       *ngIf="authService.hasPermission(permissions.gsHealthWebinar)"
@@ -36,9 +36,17 @@
       *ngIf="authService.hasPermission(permissions.gsHealthLeadform)"
       type="button"
       class="subtab-btn"
-      [class.active]="activeSubTab === 'leadform'"
-      (click)="setSubTab('leadform')">
-      <span class="subtab-icon">📝</span> Lead Form
+      [class.active]="activeSubTab === 'demo'"
+      (click)="setSubTab('demo')">
+      <span class="subtab-icon">📝</span> Demo Funnel
+    </button>
+    <button
+      *ngIf="authService.hasPermission(permissions.gsHealthKeyMetrics)"
+      type="button"
+      class="subtab-btn"
+      [class.active]="activeSubTab === 'renewal'"
+      (click)="setSubTab('renewal')">
+      <span class="subtab-icon">🔁</span> Renewal
     </button>
   </div>
 
@@ -46,8 +54,12 @@
   <ng-container *ngIf="activeSubTab === 'overview' && authService.hasPermission(permissions.gsHealthKeyMetrics)">
     <div class="key-metrics-heading">
       <h2 class="section-title">
-        Key Metrics
-        <span class="section-note">ℹ️ "Current Month" and "Current Quarter" are anchored to the latest month present in the data, not today's calendar date.</span>
+        <span class="heading-row">
+          Key Metrics
+          <button type="button" class="target-btn" (click)="openTargetModal()" title="Set a monthly revenue target">🎯</button>
+          <button type="button" class="summarize-btn" (click)="openSummaryModal()" title="Current month vs previous month at a glance">📋 Summarize</button>
+        </span>
+        <span class="section-note">ℹ️ Revenue is Webinar + Demo Funnel + Renewal added together. Spend is shown separately for Webinar ads, Demo Funnel ads and Marketing. Paid Users and CAC exclude renewals. "Current Month" and "Current Quarter" are anchored to the latest month present in the data, not today's calendar date.</span>
       </h2>
     </div>
 
@@ -59,32 +71,46 @@
     </div>
   </ng-container>
 
-  <!-- ============ WEBINAR / LEAD FORM CHANNEL TABS ============ -->
+  <!-- ============ WEBINAR / DEMO FUNNEL / RENEWAL FUNNEL TABS ============ -->
   <ng-container *ngIf="activeSubTab === 'webinar' && authService.hasPermission(permissions.gsHealthWebinar)">
     <div class="key-metrics-heading">
       <h2 class="section-title">
-        Webinar Channel
-        <span class="section-note">ℹ️ Every figure here comes straight from the sheet's Webinar-specific columns — nothing shared with the Lead Form channel.</span>
+        Webinar Funnel
+        <span class="section-note">ℹ️ Every figure here comes straight from the sheet's Webinar-specific columns — nothing shared with the other funnels.</span>
       </h2>
     </div>
     <div *ngIf="loadingChannelMetrics" class="loading-inline">Loading webinar metrics...</div>
     <div *ngIf="channelMetricsError" class="error">{{ channelMetricsError }}</div>
     <div *ngIf="!loadingChannelMetrics && !channelMetricsError" class="metric-category-stack">
-      <app-metric-category-card *ngFor="let cat of channelCategories" [config]="cat" [data]="activeChannelMetrics[cat.key]"></app-metric-category-card>
+      <app-metric-category-card *ngFor="let cat of categoriesFor('webinar')" [config]="cat" [data]="activeChannelMetrics[cat.key]"></app-metric-category-card>
     </div>
   </ng-container>
 
-  <ng-container *ngIf="activeSubTab === 'leadform' && authService.hasPermission(permissions.gsHealthLeadform)">
+  <ng-container *ngIf="activeSubTab === 'demo' && authService.hasPermission(permissions.gsHealthLeadform)">
     <div class="key-metrics-heading">
       <h2 class="section-title">
-        Lead Form Channel
-        <span class="section-note">ℹ️ Every figure here comes straight from the sheet's Demo/Lead Form-specific columns — nothing shared with the Webinar channel.</span>
+        Demo Funnel
+        <span class="section-note">ℹ️ Every figure here comes straight from the sheet's Demo Funnel / Lead Form columns — nothing shared with the other funnels.</span>
       </h2>
     </div>
-    <div *ngIf="loadingChannelMetrics" class="loading-inline">Loading lead form metrics...</div>
+    <div *ngIf="loadingChannelMetrics" class="loading-inline">Loading demo funnel metrics...</div>
     <div *ngIf="channelMetricsError" class="error">{{ channelMetricsError }}</div>
     <div *ngIf="!loadingChannelMetrics && !channelMetricsError" class="metric-category-stack">
-      <app-metric-category-card *ngFor="let cat of channelCategories" [config]="cat" [data]="activeChannelMetrics[cat.key]"></app-metric-category-card>
+      <app-metric-category-card *ngFor="let cat of categoriesFor('demo')" [config]="cat" [data]="activeChannelMetrics[cat.key]"></app-metric-category-card>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="activeSubTab === 'renewal' && authService.hasPermission(permissions.gsHealthKeyMetrics)">
+    <div class="key-metrics-heading">
+      <h2 class="section-title">
+        Renewal Funnel
+        <span class="section-note">ℹ️ Straight from the sheet's Renewal columns. The sheet has no ad spend, CPL, CAC or ROAS for renewals, so only these figures are shown.</span>
+      </h2>
+    </div>
+    <div *ngIf="loadingChannelMetrics" class="loading-inline">Loading renewal metrics...</div>
+    <div *ngIf="channelMetricsError" class="error">{{ channelMetricsError }}</div>
+    <div *ngIf="!loadingChannelMetrics && !channelMetricsError" class="metric-category-stack">
+      <app-metric-category-card *ngFor="let cat of categoriesFor('renewal')" [config]="cat" [data]="activeChannelMetrics[cat.key]"></app-metric-category-card>
     </div>
   </ng-container>
 
@@ -124,7 +150,7 @@
 
       <div class="chart-section">
         <div class="chart-header">
-          <h3>Net Revenue</h3>
+          <h3>Net Revenue (Webinar + Demo Funnel + Renewal)</h3>
           <div class="button-group">
             <button [class.active]="revenueView === 'monthly'" (click)="toggleRevenueView('monthly')">Monthly</button>
             <button [class.active]="revenueView === 'cumulative'" (click)="toggleRevenueView('cumulative')">Cumulative</button>
@@ -167,7 +193,9 @@
                 <th>Month</th>
                 <th>Leads (Webinar + Lead Form)</th>
                 <th>Net Revenue (Combined)</th>
-                <th>Ads Spent (with GST)</th>
+                <th>Webinar Ads</th>
+                <th>Demo Ads</th>
+                <th>Marketing + UGC</th>
                 <th>Webinar CPL</th>
                 <th>Webinar Net ROAS</th>
                 <th>Overall CAC</th>
@@ -182,7 +210,9 @@
                 <td class="month-label">{{ row.monthLabel }}</td>
                 <td>{{ row.registeredCount }}</td>
                 <td>₹{{ row.combinedNetRevenue | number: '1.0-0' }}</td>
-                <td>₹{{ row.adsSpent | number: '1.0-0' }}</td>
+                <td>₹{{ row.webinarAdsSpentWithGST | number: '1.0-0' }}</td>
+                <td>₹{{ row.leadAdsSpentWithGST | number: '1.0-0' }}</td>
+                <td>₹{{ row.marketingSpending + row.ugcInfluencerCost | number: '1.0-0' }}</td>
                 <td>₹{{ row.cpp }}</td>
                 <td>{{ row.netRoas }}x</td>
                 <td>₹{{ row.cac }}</td>
@@ -197,4 +227,148 @@
       </div>
     </ng-container>
   </section>
+
+  <!-- Summarize popup: current month vs previous month — also a direct child of the page container. -->
+  <div class="modal-overlay" *ngIf="showSummaryModal" (click)="closeSummaryModal()">
+    <div class="modal-content summary-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📋 Monthly Summary</h2>
+        <button type="button" class="btn-close" (click)="closeSummaryModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="loadingSummary && !monthSummary" class="loading-inline">Loading...</div>
+        <div *ngIf="summaryError" class="error">{{ summaryError }}</div>
+
+        <ng-container *ngIf="!summaryError && monthSummary">
+          <!-- Same ‹ month list › control as the target popup. The picked month is compared with the one before it. -->
+          <div class="target-month-row" *ngIf="monthSummary.months.length > 0">
+            <button type="button" class="month-step" (click)="stepSummaryMonth(1)" [disabled]="!canStepSummary(1)" title="Earlier month">‹</button>
+            <select [ngModel]="summaryMonthKey" (ngModelChange)="onSummaryMonthChange($event)">
+              <option *ngFor="let m of monthSummary.months" [value]="m.key">{{ m.label }}</option>
+            </select>
+            <button type="button" class="month-step" (click)="stepSummaryMonth(-1)" [disabled]="!canStepSummary(-1)" title="Later month">›</button>
+          </div>
+
+          <table class="summary-table" [style.opacity]="loadingSummary ? 0.45 : 1">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th class="num">{{ monthSummary.currentLabel }}</th>
+                <th class="num">{{ monthSummary.previousLabel || 'Previous month' }}</th>
+                <th class="num">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of monthSummary.rows">
+                <td class="metric-name">{{ row.label }}</td>
+                <td class="num strong">{{ row.format === 'currency' ? '₹' : '' }}{{ row.current | number: '1.0-0' }}</td>
+                <td class="num">
+                  <ng-container *ngIf="row.previous !== null; else noPrev">{{ row.format === 'currency' ? '₹' : '' }}{{ row.previous | number: '1.0-0' }}</ng-container>
+                  <ng-template #noPrev>—</ng-template>
+                </td>
+                <td class="num">
+                  <ng-container *ngIf="row.delta !== null; else noChange">
+                    <span class="change" [ngClass]="summaryChangeClass(row)">
+                      <ng-container *ngIf="row.pct !== null">{{ row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '' }} {{ row.pct < 0 ? -row.pct : row.pct }}%</ng-container>
+                      <ng-container *ngIf="row.pct === null">{{ row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '—' }}</ng-container>
+                    </span>
+                    <span class="change-abs">{{ row.delta > 0 ? '+' : row.delta < 0 ? '−' : '' }}{{ row.format === 'currency' ? '₹' : '' }}{{ (row.delta < 0 ? -row.delta : row.delta) | number: '1.0-0' }}</span>
+                  </ng-container>
+                  <ng-template #noChange>—</ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="summary-foot">Green = better, red = worse (for spend, CAC and CPL, lower is better). The latest month is month-to-date as entered in the sheet, so a month still in progress will naturally look lower.</p>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly revenue target popup — a direct child of the page container (no transformed ancestor). -->
+  <div class="modal-overlay" *ngIf="showTargetModal" (click)="closeTargetModal()">
+    <div class="modal-content target-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🎯 Monthly Revenue Target</h2>
+        <button type="button" class="btn-close" (click)="closeTargetModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="loadingTargets" class="loading-inline">Loading...</div>
+        <div *ngIf="targetError" class="error">{{ targetError }}</div>
+
+        <ng-container *ngIf="!loadingTargets && targetMonths.length > 0">
+          <div class="target-month-row">
+            <button type="button" class="month-step" (click)="stepTargetMonth(-1)" [disabled]="!canStepMonth(-1)" title="Earlier month">‹</button>
+            <select [ngModel]="targetMonthKey" (ngModelChange)="selectTargetMonth($event)">
+              <option *ngFor="let m of monthOptions" [value]="m.key">{{ m.label }}{{ savedTargets[m.key] ? ' · target set' : '' }}</option>
+            </select>
+            <button type="button" class="month-step" (click)="stepTargetMonth(1)" [disabled]="!canStepMonth(1)" title="Later month">›</button>
+          </div>
+
+          <label class="target-label" for="targetInput">Revenue target for {{ monthLabelFor(targetMonthKey) }}</label>
+          <div class="target-input-row">
+            <span class="rupee">₹</span>
+            <input id="targetInput" type="text" inputmode="decimal" autocomplete="off" [(ngModel)]="targetInput" placeholder="e.g. 30L  or  3000000" (keyup.enter)="saveTarget()">
+          </div>
+          <div class="target-hint" *ngIf="parsedTarget">= ₹{{ parsedTarget | number: '1.0-0' }}</div>
+          <div class="target-hint warn" *ngIf="targetInput && parsedTarget === null">Couldn't read that — try 30L, 30 lakh, 1.5cr or 3000000.</div>
+
+          <div class="target-stats">
+            <!-- Achieved turns a deeper green the closer it gets to the target; Left fades from red as it shrinks. -->
+            <div class="target-stat achieved-stat" [ngStyle]="achievedBoxStyle">
+              <span class="stat-label">Achieved so far</span>
+              <span class="stat-value">₹{{ achieved | number: '1.0-0' }}</span>
+              <span class="stat-sub">Total Revenue<ng-container *ngIf="parsedTarget"> · {{ percentAchieved | number: '1.0-1' }}%</ng-container></span>
+            </div>
+            <div class="target-stat">
+              <span class="stat-label">Target</span>
+              <span class="stat-value">{{ parsedTarget ? '₹' + (parsedTarget | number: '1.0-0') : '—' }}</span>
+            </div>
+            <div class="target-stat left-stat" [class.done]="parsedTarget && remainingToTarget === 0" [ngStyle]="leftBoxStyle">
+              <span class="stat-label">{{ parsedTarget && remainingToTarget === 0 ? 'Above target' : 'Left to achieve' }}</span>
+              <span class="stat-value">{{ parsedTarget ? '₹' + ((remainingToTarget === 0 ? aboveTarget : remainingToTarget) | number: '1.0-0') : '—' }}</span>
+              <span class="stat-pct" *ngIf="parsedTarget && remainingToTarget > 0">{{ percentLeft | number: '1.0-1' }}% left</span>
+            </div>
+          </div>
+
+          <ng-container *ngIf="parsedTarget; else noTarget">
+            <div class="target-progress" [class.done]="remainingToTarget === 0" [class.mid]="remainingToTarget > 0 && percentAchieved >= 50">
+              <div class="target-progress-fill" [style.width.%]="percentAchieved > 100 ? 100 : percentAchieved"></div>
+            </div>
+            <div class="target-status" [class.done]="remainingToTarget === 0">
+              <ng-container *ngIf="remainingToTarget > 0">
+                <strong>₹{{ remainingToTarget | number: '1.0-0' }}</strong> still to go —
+                <span class="pct-left">{{ percentLeft | number: '1.0-1' }}% left</span>
+                ({{ percentAchieved | number: '1.0-1' }}% achieved).
+              </ng-container>
+              <ng-container *ngIf="remainingToTarget === 0">
+                🎉 Target achieved — ₹{{ aboveTarget | number: '1.0-0' }} above it ({{ percentAchieved | number: '1.0-1' }}%).
+              </ng-container>
+            </div>
+          </ng-container>
+          <ng-template #noTarget>
+            <div class="target-status muted">Type a target to see how much is left.</div>
+          </ng-template>
+
+          <div class="target-breakdown" *ngIf="achievedMonth; else noSheetData">
+            <span>Webinar <strong>₹{{ achievedMonth.webinar | number: '1.0-0' }}</strong></span>
+            <span>Demo Funnel <strong>₹{{ achievedMonth.demo | number: '1.0-0' }}</strong></span>
+            <span>Renewal <strong>₹{{ achievedMonth.renewal | number: '1.0-0' }}</strong></span>
+          </div>
+          <ng-template #noSheetData>
+            <div class="target-breakdown muted">No revenue is recorded in the sheet for this month yet.</div>
+          </ng-template>
+
+          <div class="target-actions">
+            <button type="button" class="btn-save" [disabled]="!canSaveTarget" (click)="saveTarget()">
+              {{ savingTarget ? 'Saving...' : savedTargets[targetMonthKey] && parsedTarget === savedTargets[targetMonthKey] ? 'Saved ✓' : 'Save target' }}
+            </button>
+            <button type="button" class="btn-clear" *ngIf="savedTargets[targetMonthKey]" [disabled]="savingTarget" (click)="clearTarget()">Remove target</button>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+  </div>
 </div>

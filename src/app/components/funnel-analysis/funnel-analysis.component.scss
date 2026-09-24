@@ -476,6 +476,44 @@
   font-weight: 700;
 }
 
+.batch-detail-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0 0 1rem 0;
+
+  .batch-detail-title {
+    margin: 0;
+  }
+}
+
+// The webinar's own name (from the Lead column, e.g. "Webinar - Momentum" -> Momentum), shown as a
+// highlighted tab-style box right beside the batch date.
+.webinar-name-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2d7d3d 0%, #1e5a2a 100%);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(30, 90, 42, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #9be3a9;
+    box-shadow: 0 0 0 2px rgba(155, 227, 169, 0.3);
+  }
+}
+
 .batch-detail-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

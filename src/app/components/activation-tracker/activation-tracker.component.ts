@@ -20,6 +20,30 @@ interface ActivationDayCell {
   manual: boolean;
 }
 
+interface ActivationPortfolioLine {
+  name: string;
+  broker: string;
+  invested: number;
+  current: number;
+  pnl: number;
+}
+
+interface ActivationPortfolioSummary {
+  broker: string;
+  count: number;
+  totalInvested: number;
+  totalCurrent: number;
+  totalPnl: number;
+  portfolios: ActivationPortfolioLine[];
+}
+
+interface ActivationManualInvestment {
+  broker: string;
+  investedAmount: number;
+  currentValue: number;
+  updatedAt: string;
+}
+
 interface ActivationRow {
   name: string;
   phone: string;
@@ -28,6 +52,9 @@ interface ActivationRow {
   days: ActivationDayCell[];
   score: number;
   remark: string;
+  lastLoginAt: string | null;
+  livePortfolio: ActivationPortfolioSummary | null;
+  manualInvestment: ActivationManualInvestment | null;
 }
 
 interface DayStat {
@@ -59,6 +86,7 @@ export class ActivationTrackerComponent implements OnInit, OnDestroy {
   rows: ActivationRow[] = [];
   loadingTable = false;
   errorTable: string | null = null;
+  investedCount = 0;
 
   sortBy: SortKey = 'score';
   sortOrder: 'asc' | 'desc' = 'desc';
@@ -83,6 +111,14 @@ export class ActivationTrackerComponent implements OnInit, OnDestroy {
   overrideSaving = false;
 
   remarkSaving = new Set<string>();
+
+  showPortfolioModal = false;
+  portfolioModalRow: ActivationRow | null = null;
+
+  showManualInvestModal = false;
+  manualInvestRow: ActivationRow | null = null;
+  manualInvestForm = { broker: '', investedAmount: 0, currentValue: 0 };
+  savingManualInvest = false;
 
   private destroy$ = new Subject<void>();
 
@@ -179,6 +215,7 @@ export class ActivationTrackerComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success && response.data) {
             this.rows = response.data.rows || [];
+            this.investedCount = response.data.investedCount || 0;
             this.currentPage = 1;
             this.computeDayStats();
             this.resortAndPage();
@@ -324,6 +361,59 @@ export class ActivationTrackerComponent implements OnInit, OnDestroy {
         error: (error) => {
           console.error(error);
           this.remarkSaving.delete(row.phone);
+        },
+      });
+  }
+
+  openPortfolioModal(row: ActivationRow) {
+    this.portfolioModalRow = row;
+    this.showPortfolioModal = true;
+  }
+
+  closePortfolioModal() {
+    this.showPortfolioModal = false;
+    this.portfolioModalRow = null;
+  }
+
+  openManualInvestModal(row: ActivationRow) {
+    this.manualInvestRow = row;
+    this.manualInvestForm = row.manualInvestment
+      ? { broker: row.manualInvestment.broker, investedAmount: row.manualInvestment.investedAmount, currentValue: row.manualInvestment.currentValue }
+      : { broker: '', investedAmount: 0, currentValue: 0 };
+    this.showManualInvestModal = true;
+  }
+
+  closeManualInvestModal() {
+    this.showManualInvestModal = false;
+    this.manualInvestRow = null;
+  }
+
+  // Writes to the same shared record EmandateTracker uses ("did this person invest elsewhere" is
+  // one fact about the person, not something to re-enter per tab).
+  saveManualInvestment() {
+    const row = this.manualInvestRow;
+    if (!row || !this.manualInvestForm.broker.trim()) return;
+
+    this.savingManualInvest = true;
+    this.apiService
+      .saveEmandateManualInvestment(row.phone, this.manualInvestForm.broker.trim(), this.manualInvestForm.investedAmount, this.manualInvestForm.currentValue)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          const wasInvested = row.livePortfolio !== null || row.manualInvestment !== null;
+          row.manualInvestment = {
+            broker: this.manualInvestForm.broker.trim(),
+            investedAmount: this.manualInvestForm.investedAmount,
+            currentValue: this.manualInvestForm.currentValue,
+            updatedAt: new Date().toISOString(),
+          };
+          if (!wasInvested) this.investedCount++;
+          this.savingManualInvest = false;
+          this.closeManualInvestModal();
+        },
+        error: (error) => {
+          console.error(error);
+          this.savingManualInvest = false;
         },
       });
   }

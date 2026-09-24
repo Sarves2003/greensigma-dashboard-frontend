@@ -24,6 +24,17 @@
   font-size: 1.15rem;
 }
 
+.metric-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.metric-desc {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
 .metric-title {
   margin: 0;
   font-size: 1.05rem;
