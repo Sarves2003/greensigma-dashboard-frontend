@@ -336,6 +336,16 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/month-summary`, { params: this.buildParams({ asOfMonth }) });
   }
 
+  // Every revenue and spend item behind one month (feeds the Marketing Spent and MER drill-down popups).
+  getGsHealthMonthComponents(month?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/month-components`, { params: this.buildParams({ month }) });
+  }
+
+  // Every metric for every month (feeds the Chart Report popup).
+  getGsHealthChartData(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/chart-data`);
+  }
+
   getGsHealthRevenueTargets(): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/gs-health/revenue-targets`);
   }

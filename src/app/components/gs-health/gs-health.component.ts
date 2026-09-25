@@ -8,9 +8,34 @@ import { AuthService } from '../../services/auth.service';
 import { PERMISSIONS } from '../../config/permissions';
 import { EchartBarComponent } from '../shared/echart-bar/echart-bar.component';
 import { EchartLineComponent } from '../shared/echart-line/echart-line.component';
+import { MetricChartComponent, ChartFormat, formatFull } from '../shared/metric-chart/metric-chart.component';
 import { MetricCategoryCardComponent, MetricBreakdown, MetricCategoryConfig } from '../shared/metric-category-card/metric-category-card.component';
 
 type ChannelKey = 'webinar' | 'demo' | 'renewal';
+
+interface ChartMetric {
+  key: string;
+  label: string;
+  group: string;
+  format: ChartFormat;
+  additive: boolean; // revenue / spend / counts can be added up over time; ratios and unit costs cannot
+  lowerIsBetter: boolean;
+  values: (number | null)[];
+}
+
+interface ChartStat {
+  label: string;
+  value: string;
+  sub: string | null;
+  tone: 'good' | 'bad' | 'flat' | null;
+}
+
+const CHART_GROUP_COLORS: Record<string, string> = {
+  Revenue: '#15803d',
+  Spend: '#ea580c',
+  Efficiency: '#4f46e5',
+  'Users & Leads': '#0369a1',
+};
 
 interface TargetMonth {
   monthKey: string;
@@ -33,7 +58,7 @@ type SubTab = 'overview' | ChannelKey;
 @Component({
   selector: 'app-gs-health',
   standalone: true,
-  imports: [CommonModule, FormsModule, EchartBarComponent, EchartLineComponent, MetricCategoryCardComponent],
+  imports: [CommonModule, FormsModule, EchartBarComponent, EchartLineComponent, MetricCategoryCardComponent, MetricChartComponent],
   templateUrl: './gs-health.component.html',
   styleUrls: ['./gs-health.component.scss'],
 })
@@ -47,6 +72,9 @@ export class GsHealthComponent implements OnInit, OnDestroy {
   overviewCategories: MetricCategoryConfig[] = [
     { key: 'totalRevenue', label: 'Total Revenue', icon: '💵', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#15803d', accentBg: '#ecfdf3' },
     { key: 'revenue', label: 'Net Revenue', icon: '💰', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#16a34a', accentBg: '#eef7f0' },
+    { key: 'brokerage', label: 'Algo Brokerage Profit', icon: '📈', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#0f766e', accentBg: '#f0fdfa' },
+    { key: 'merGross', label: 'MER (Gross)', icon: '⚖️', prefix: '', decimals: '1.0-2', isAvg: true, lowerIsBetter: false, accent: '#4f46e5', accentBg: '#eef2ff', description: '(Total Revenue + brokerage) ÷ (ads with GST + marketing + UGC)' },
+    { key: 'merNet', label: 'MER (Net)', icon: '⚖️', prefix: '', decimals: '1.0-2', isAvg: true, lowerIsBetter: false, accent: '#7c3aed', accentBg: '#f5f3ff', description: '(Net Revenue + brokerage) ÷ (ads without GST + marketing + UGC)' },
     { key: 'cac', label: 'Overall CAC', icon: '📐', prefix: '₹', decimals: '1.0-2', isAvg: true, lowerIsBetter: true, accent: '#d97706', accentBg: '#fef6e7' },
     { key: 'paidUsers', label: 'Paid Users (Webinar + Demo)', icon: '👤', prefix: '', decimals: '1.0-0', isAvg: false, lowerIsBetter: false, accent: '#0369a1', accentBg: '#eff6ff' },
     { key: 'webinarAds', label: 'Webinar Ads Spent', icon: '🎥', prefix: '₹', decimals: '1.0-0', isAvg: false, lowerIsBetter: true, accent: '#dc2626', accentBg: '#fef2f2', description: 'Webinar ads, including GST' },
@@ -114,7 +142,8 @@ export class GsHealthComponent implements OnInit, OnDestroy {
     rows: {
       key: string;
       label: string;
-      format: 'currency' | 'number';
+      sub: string | null;
+      format: 'currency' | 'number' | 'ratio';
       lowerIsBetter: boolean;
       current: number;
       previous: number | null;
@@ -122,6 +151,45 @@ export class GsHealthComponent implements OnInit, OnDestroy {
       pct: number | null;
     }[];
   } | null = null;
+
+  // ============ Chart Report popup ============
+  // Pick any metric, then look at it month by month or (for revenue, spend and counts) as a running total.
+  showChartModal = false;
+  loadingChart = false;
+  chartError: string | null = null;
+  chartData: { months: { key: string; label: string; year: number }[]; metrics: ChartMetric[] } | null = null;
+  chartGroups: { name: string; metrics: ChartMetric[] }[] = [];
+  chartRangeOptions: { value: string; label: string }[] = [];
+  chartMetricKey = 'grossRevenue';
+  chartRange = 'all';
+  chartView: 'monthly' | 'cumulative' = 'monthly';
+  // Worked out once per change in recomputeChart() (not in getters), so the chart only redraws when it must.
+  chartMetric: ChartMetric | null = null;
+  chartCategories: string[] = [];
+  chartValues: (number | null)[] = [];
+  chartMonthlyValues: (number | null)[] | null = null;
+  chartKind: 'bar' | 'line' | 'area' = 'bar';
+  chartColor = '#15803d';
+  chartCaption = '';
+  chartStats: ChartStat[] = [];
+
+  // ============ Drill-downs from the Summarize table: "Marketing Spent" and "MER" rows ============
+  // Both read the same per-month item list (revenue items + spend items, each with gross and net).
+  showMarketingModal = false;
+  showMerModal = false;
+  loadingComponents = false;
+  componentsError: string | null = null;
+  components: {
+    monthKey: string;
+    monthLabel: string;
+    revenue: { key: string; label: string; gross: number; net: number }[];
+    spend: { key: string; label: string; group: 'ads' | 'marketing'; gross: number; net: number }[];
+    customers: { key: string; label: string; value: number }[];
+    mer: { gross: number; net: number };
+    ltv: { gross: number; net: number };
+  } | null = null;
+  // Items the user has unticked in the MER popup (excluded from the recalculation only — nothing is saved).
+  merExcluded = new Set<string>();
 
   // ============ Monthly revenue target popup ============
   // One revenue target per month, shared/saved server-side. "Achieved" is that month's Total Revenue
@@ -274,6 +342,323 @@ export class GsHealthComponent implements OnInit, OnDestroy {
   summaryChangeClass(row: { delta: number | null; lowerIsBetter: boolean }): string {
     if (row.delta === null || row.delta === 0) return 'flat';
     return (row.delta < 0) === row.lowerIsBetter ? 'good' : 'bad';
+  }
+
+  // ============ Chart Report ============
+  openChartModal() {
+    this.showChartModal = true;
+    this.loadingChart = true;
+    this.chartError = null;
+
+    this.apiService
+      .getGsHealthChartData()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.chartData = response.data;
+            const groups = new Map<string, ChartMetric[]>();
+            for (const m of response.data.metrics as ChartMetric[]) {
+              if (!groups.has(m.group)) groups.set(m.group, []);
+              groups.get(m.group)!.push(m);
+            }
+            this.chartGroups = [...groups.entries()].map(([name, metrics]) => ({ name, metrics }));
+
+            const years = [...new Set((response.data.months as { year: number }[]).map((m) => m.year))].sort((a, b) => b - a);
+            this.chartRangeOptions = [
+              { value: 'all', label: 'All months' },
+              { value: '12', label: 'Last 12 months' },
+              { value: '6', label: 'Last 6 months' },
+              ...years.map((y) => ({ value: String(y), label: `${y} only` })),
+            ];
+            this.recomputeChart();
+          } else {
+            this.chartError = 'No data available yet.';
+          }
+          this.loadingChart = false;
+        },
+        error: (err) => {
+          this.chartError = 'Failed to load the chart data';
+          console.error(err);
+          this.loadingChart = false;
+        },
+      });
+  }
+
+  closeChartModal() {
+    this.showChartModal = false;
+  }
+
+  onChartMetricChange(key: string) {
+    this.chartMetricKey = key;
+    this.recomputeChart();
+  }
+
+  onChartRangeChange(range: string) {
+    this.chartRange = range;
+    this.recomputeChart();
+  }
+
+  setChartView(view: 'monthly' | 'cumulative') {
+    if (view === 'cumulative' && !this.chartMetric?.additive) return;
+    this.chartView = view;
+    this.recomputeChart();
+  }
+
+  private chartRangeIndexes(monthCount: number, years: number[]): number[] {
+    const all = Array.from({ length: monthCount }, (_, i) => i);
+    if (this.chartRange === 'all') return all;
+    if (this.chartRange === '12') return all.slice(-12);
+    if (this.chartRange === '6') return all.slice(-6);
+    const year = parseInt(this.chartRange, 10);
+    return all.filter((i) => years[i] === year);
+  }
+
+  private recomputeChart() {
+    const data = this.chartData;
+    if (!data || data.metrics.length === 0) return;
+
+    const metric = data.metrics.find((m) => m.key === this.chartMetricKey) || data.metrics[0];
+    this.chartMetricKey = metric.key;
+    this.chartMetric = metric;
+    // A ratio or unit cost (MER, CAC, CPL, ROAS...) can't be added up over time, so it is monthly only.
+    if (!metric.additive) this.chartView = 'monthly';
+
+    const idx = this.chartRangeIndexes(data.months.length, data.months.map((m) => m.year));
+    const labels = idx.map((i) => data.months[i].label);
+    const monthly = idx.map((i) => metric.values[i]);
+    const cumulative = this.chartView === 'cumulative' && metric.additive;
+
+    let running = 0;
+    this.chartCategories = labels;
+    this.chartMonthlyValues = cumulative ? monthly : null;
+    this.chartValues = cumulative ? monthly.map((v) => (running += v ?? 0)) : monthly;
+    this.chartKind = cumulative ? 'area' : metric.additive ? 'bar' : 'line';
+    this.chartColor = CHART_GROUP_COLORS[metric.group] || '#15803d';
+    this.chartCaption = cumulative
+      ? `Running total, adding each month on top of the last, starting from ${labels[0] || '—'}`
+      : metric.additive
+        ? 'Amount for each month'
+        : 'Value for each month (a rate, so it cannot be added up)';
+
+    this.chartStats = this.buildChartStats(metric, labels, monthly);
+  }
+
+  // Headline numbers under the chart. Always about the month-by-month values in the chosen range,
+  // even when the chart itself is showing a running total.
+  private buildChartStats(metric: ChartMetric, labels: string[], monthly: (number | null)[]): ChartStat[] {
+    const fmt = metric.format;
+    const stats: ChartStat[] = [];
+
+    let latestIdx = -1;
+    for (let i = monthly.length - 1; i >= 0; i--) {
+      if (monthly[i] !== null) { latestIdx = i; break; }
+    }
+    if (latestIdx >= 0) {
+      const latest = monthly[latestIdx] as number;
+      let sub: string | null = null;
+      let tone: ChartStat['tone'] = null;
+      let prevIdx = -1;
+      for (let i = latestIdx - 1; i >= 0; i--) {
+        if (monthly[i] !== null) { prevIdx = i; break; }
+      }
+      const prev = prevIdx >= 0 ? (monthly[prevIdx] as number) : null;
+      if (prev !== null && prev !== 0) {
+        const pct = ((latest - prev) / Math.abs(prev)) * 100;
+        tone = Math.abs(pct) < 0.05 ? 'flat' : (pct > 0) !== metric.lowerIsBetter ? 'good' : 'bad';
+        sub = `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% vs ${labels[prevIdx]}`;
+      }
+      stats.push({ label: `Latest · ${labels[latestIdx]}`, value: formatFull(latest, fmt), sub, tone });
+    }
+
+    const nums = monthly.filter((v): v is number => v !== null);
+    if (nums.length > 0) {
+      stats.push({ label: 'Average / month', value: formatFull(nums.reduce((a, b) => a + b, 0) / nums.length, fmt), sub: null, tone: null });
+    }
+
+    // Best / worst ignore months with nothing recorded (0), otherwise "lowest spend" is just "before we tracked it".
+    const filled = monthly.map((v, i) => ({ v, i })).filter((x): x is { v: number; i: number } => x.v !== null && x.v > 0);
+    if (filled.length > 0) {
+      const high = filled.reduce((a, b) => (b.v > a.v ? b : a));
+      const low = filled.reduce((a, b) => (b.v < a.v ? b : a));
+      const best = metric.lowerIsBetter ? low : high;
+      const worst = metric.lowerIsBetter ? high : low;
+      stats.push({ label: 'Best month', value: formatFull(best.v, fmt), sub: labels[best.i], tone: 'good' });
+      stats.push({ label: 'Weakest month', value: formatFull(worst.v, fmt), sub: labels[worst.i], tone: 'bad' });
+    }
+
+    if (metric.additive && nums.length > 0) {
+      stats.push({ label: 'Total in range', value: formatFull(nums.reduce((a, b) => a + b, 0), fmt), sub: null, tone: null });
+    }
+    return stats;
+  }
+
+  // ============ Summarize drill-downs ============
+  isSummaryRowClickable(key: string): boolean {
+    return key === 'marketing' || key === 'mer' || key === 'ltv';
+  }
+
+  openSummaryDetail(key: string) {
+    if (key === 'marketing') this.openMarketingModal();
+    else if (key === 'mer') this.openMerModal();
+    else if (key === 'ltv') this.openLtvModal();
+  }
+
+  private loadComponents() {
+    this.loadingComponents = true;
+    this.componentsError = null;
+    this.components = null;
+
+    this.apiService
+      .getGsHealthMonthComponents(this.summaryMonthKey || undefined)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.components = response.data;
+          } else {
+            this.componentsError = 'No data available for this month.';
+          }
+          this.loadingComponents = false;
+        },
+        error: (err) => {
+          this.componentsError = 'Failed to load the breakdown';
+          console.error(err);
+          this.loadingComponents = false;
+        },
+      });
+  }
+
+  openMarketingModal() {
+    this.showMarketingModal = true;
+    this.loadComponents();
+  }
+
+  closeMarketingModal() {
+    this.showMarketingModal = false;
+  }
+
+  // Marketing Spent = the "marketing" group of the spend list (tool spend + UGC), per product for the month.
+  get marketingItems(): { key: string; label: string; gross: number }[] {
+    return (this.components?.spend || [])
+      .filter((i) => i.group === 'marketing' && i.gross > 0)
+      .sort((a, b) => b.gross - a.gross);
+  }
+
+  get marketingTotal(): number {
+    return this.marketingItems.reduce((sum, i) => sum + i.gross, 0);
+  }
+
+  // The MER popup shows ONE mode at a time (Gross or Net), switched from the header toggle.
+  merMode: 'gross' | 'net' = 'gross';
+
+  openMerModal() {
+    this.showMerModal = true;
+    this.merMode = 'gross';
+    this.merExcluded = new Set<string>();
+    this.loadComponents();
+  }
+
+  closeMerModal() {
+    this.showMerModal = false;
+  }
+
+  setMerMode(mode: 'gross' | 'net') {
+    this.merMode = mode;
+  }
+
+  isMerIncluded(key: string): boolean {
+    return !this.merExcluded.has(key);
+  }
+
+  toggleMerItem(key: string) {
+    if (this.merExcluded.has(key)) this.merExcluded.delete(key);
+    else this.merExcluded.add(key);
+  }
+
+  resetMer() {
+    this.merExcluded = new Set<string>();
+  }
+
+  // The amount shown for an item in the current mode (gross = as paid / with GST, net = without GST).
+  merAmount(item: { gross: number; net: number }): number {
+    return item[this.merMode];
+  }
+
+  private sumIncluded(items: { key: string; gross: number; net: number }[]): number {
+    return items.filter((i) => !this.merExcluded.has(i.key)).reduce((sum, i) => sum + i[this.merMode], 0);
+  }
+
+  get merRevenue(): number { return this.sumIncluded(this.components?.revenue || []); }
+  get merSpend(): number { return this.sumIncluded(this.components?.spend || []); }
+
+  // Gross MER = gross revenue ÷ spend with GST; Net MER = net revenue ÷ spend without GST.
+  get merLive(): number | null { return this.merSpend > 0 ? this.merRevenue / this.merSpend : null; }
+
+  // The dashboard's own value for the same mode, for comparison while items are unticked.
+  get merDashboard(): number | null { return this.components ? this.components.mer[this.merMode] : null; }
+
+  // ============ LTV drill-down ============
+  // LTV = ALL revenue (Webinar + Demo Funnel + Renewal + algo brokerage) ÷ paid customers. Each revenue item and
+  // each customer group has a tick box, so the figure can be recalculated without some of them (temporary, not saved).
+  // "Renewed users" starts unticked: a renewal is an existing customer paying again, not a new customer.
+  private readonly ltvDefaultExcluded = ['renewedUsers'];
+  showLtvModal = false;
+  ltvMode: 'gross' | 'net' = 'gross';
+  ltvExcluded = new Set<string>(this.ltvDefaultExcluded);
+
+  openLtvModal() {
+    this.showLtvModal = true;
+    this.ltvMode = 'gross';
+    this.resetLtv();
+    this.loadComponents();
+  }
+
+  closeLtvModal() {
+    this.showLtvModal = false;
+  }
+
+  setLtvMode(mode: 'gross' | 'net') {
+    this.ltvMode = mode;
+  }
+
+  isLtvIncluded(key: string): boolean {
+    return !this.ltvExcluded.has(key);
+  }
+
+  toggleLtvItem(key: string) {
+    if (this.ltvExcluded.has(key)) this.ltvExcluded.delete(key);
+    else this.ltvExcluded.add(key);
+  }
+
+  resetLtv() {
+    this.ltvExcluded = new Set<string>(this.ltvDefaultExcluded);
+  }
+
+  get ltvChanged(): boolean {
+    const d = new Set(this.ltvDefaultExcluded);
+    return this.ltvExcluded.size !== d.size || [...this.ltvExcluded].some((k) => !d.has(k));
+  }
+
+  ltvAmount(item: { gross: number; net: number }): number {
+    return item[this.ltvMode];
+  }
+
+  get ltvRevenue(): number {
+    return (this.components?.revenue || []).filter((i) => !this.ltvExcluded.has(i.key)).reduce((sum, i) => sum + i[this.ltvMode], 0);
+  }
+
+  get ltvCustomers(): number {
+    return (this.components?.customers || []).filter((i) => !this.ltvExcluded.has(i.key)).reduce((sum, i) => sum + i.value, 0);
+  }
+
+  get ltvLive(): number | null {
+    return this.ltvCustomers > 0 ? this.ltvRevenue / this.ltvCustomers : null;
+  }
+
+  // The dashboard's own LTV for the same mode, to compare against while items are unticked.
+  get ltvDashboard(): number | null {
+    return this.components ? this.components.ltv[this.ltvMode] : null;
   }
 
   // ============ Revenue target popup ============

@@ -58,6 +58,7 @@
           Key Metrics
           <button type="button" class="target-btn" (click)="openTargetModal()" title="Set a monthly revenue target">🎯</button>
           <button type="button" class="summarize-btn" (click)="openSummaryModal()" title="Current month vs previous month at a glance">📋 Summarize</button>
+          <button type="button" class="summarize-btn" (click)="openChartModal()" title="Chart any metric month by month or as a running total">📊 Chart Report</button>
         </span>
         <span class="section-note">ℹ️ Revenue is Webinar + Demo Funnel + Renewal added together. Spend is shown separately for Webinar ads, Demo Funnel ads and Marketing. Paid Users and CAC exclude renewals. "Current Month" and "Current Quarter" are anchored to the latest month present in the data, not today's calendar date.</span>
       </h2>
@@ -228,6 +229,77 @@
     </ng-container>
   </section>
 
+  <!-- Chart Report popup: pick a metric, see it month by month or as a running total. -->
+  <div class="modal-overlay" *ngIf="showChartModal" (click)="closeChartModal()">
+    <div class="modal-content summary-modal detail-modal chart-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📊 Chart Report</h2>
+        <button type="button" class="btn-close" (click)="closeChartModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="loadingChart && !chartData" class="loading-inline">Loading...</div>
+        <div *ngIf="chartError" class="error">{{ chartError }}</div>
+
+        <ng-container *ngIf="chartData && chartMetric && !chartError">
+          <div class="chart-controls">
+            <label class="chart-field chart-field-wide">
+              <span>Metric</span>
+              <select [ngModel]="chartMetricKey" (ngModelChange)="onChartMetricChange($event)">
+                <optgroup *ngFor="let g of chartGroups" [label]="g.name">
+                  <option *ngFor="let m of g.metrics" [value]="m.key">{{ m.label }}</option>
+                </optgroup>
+              </select>
+            </label>
+
+            <label class="chart-field">
+              <span>Months</span>
+              <select [ngModel]="chartRange" (ngModelChange)="onChartRangeChange($event)">
+                <option *ngFor="let o of chartRangeOptions" [value]="o.value">{{ o.label }}</option>
+              </select>
+            </label>
+
+            <div class="chart-field">
+              <span>View</span>
+              <div class="chart-toggle" role="group" aria-label="Chart view">
+                <button type="button" [class.active]="chartView === 'monthly'" (click)="setChartView('monthly')">Each month</button>
+                <button type="button" [class.active]="chartView === 'cumulative'" [disabled]="!chartMetric.additive" (click)="setChartView('cumulative')"
+                  [attr.title]="chartMetric.additive ? 'Running total' : 'A rate (MER, CAC, CPL, ROAS) cannot be added up over time'">Cumulative</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-headline">
+            <strong>{{ chartMetric.label }}</strong>
+            <span>{{ chartCaption }}</span>
+          </div>
+
+          <div class="chart-stats">
+            <div class="chart-stat" *ngFor="let st of chartStats" [ngClass]="st.tone">
+              <span class="chart-stat-label">{{ st.label }}</span>
+              <span class="chart-stat-value">{{ st.value }}</span>
+              <span class="chart-stat-sub" *ngIf="st.sub">{{ st.sub }}</span>
+            </div>
+          </div>
+
+          <div class="chart-frame" [style.opacity]="loadingChart ? 0.5 : 1">
+            <app-metric-chart
+              [categories]="chartCategories"
+              [values]="chartValues"
+              [monthlyValues]="chartMonthlyValues"
+              [format]="chartMetric.format"
+              [seriesName]="chartView === 'cumulative' ? chartMetric.label + ' (cumulative)' : chartMetric.label"
+              [color]="chartColor"
+              [kind]="chartKind"
+              [lowerIsBetter]="chartMetric.lowerIsBetter">
+            </app-metric-chart>
+          </div>
+          <p class="summary-foot">Hover over a month to see the exact figure and how it moved against the month before (green = better, red = worse). The dashed line is the average of the months shown, and the latest month is the darkest bar.</p>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
   <!-- Summarize popup: current month vs previous month — also a direct child of the page container. -->
   <div class="modal-overlay" *ngIf="showSummaryModal" (click)="closeSummaryModal()">
     <div class="modal-content summary-modal" (click)="$event.stopPropagation()">
@@ -260,11 +332,11 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of monthSummary.rows">
-                <td class="metric-name">{{ row.label }}</td>
-                <td class="num strong">{{ row.format === 'currency' ? '₹' : '' }}{{ row.current | number: '1.0-0' }}</td>
+              <tr *ngFor="let row of monthSummary.rows" [class.clickable]="isSummaryRowClickable(row.key)" (click)="openSummaryDetail(row.key)" [attr.title]="isSummaryRowClickable(row.key) ? 'Click for the breakdown' : null">
+                <td class="metric-name">{{ row.label }}<span class="row-hint" *ngIf="isSummaryRowClickable(row.key)">details ›</span><span class="row-sub" *ngIf="row.sub">{{ row.sub }}</span></td>
+                <td class="num strong">{{ row.format === 'currency' ? '₹' : '' }}{{ row.current | number: (row.format === 'ratio' ? '1.0-2' : '1.0-0') }}{{ row.format === 'ratio' ? 'x' : '' }}</td>
                 <td class="num">
-                  <ng-container *ngIf="row.previous !== null; else noPrev">{{ row.format === 'currency' ? '₹' : '' }}{{ row.previous | number: '1.0-0' }}</ng-container>
+                  <ng-container *ngIf="row.previous !== null; else noPrev">{{ row.format === 'currency' ? '₹' : '' }}{{ row.previous | number: (row.format === 'ratio' ? '1.0-2' : '1.0-0') }}{{ row.format === 'ratio' ? 'x' : '' }}</ng-container>
                   <ng-template #noPrev>—</ng-template>
                 </td>
                 <td class="num">
@@ -273,7 +345,7 @@
                       <ng-container *ngIf="row.pct !== null">{{ row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '' }} {{ row.pct < 0 ? -row.pct : row.pct }}%</ng-container>
                       <ng-container *ngIf="row.pct === null">{{ row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '—' }}</ng-container>
                     </span>
-                    <span class="change-abs">{{ row.delta > 0 ? '+' : row.delta < 0 ? '−' : '' }}{{ row.format === 'currency' ? '₹' : '' }}{{ (row.delta < 0 ? -row.delta : row.delta) | number: '1.0-0' }}</span>
+                    <span class="change-abs">{{ row.delta > 0 ? '+' : row.delta < 0 ? '−' : '' }}{{ row.format === 'currency' ? '₹' : '' }}{{ (row.delta < 0 ? -row.delta : row.delta) | number: (row.format === 'ratio' ? '1.0-2' : '1.0-0') }}{{ row.format === 'ratio' ? 'x' : '' }}</span>
                   </ng-container>
                   <ng-template #noChange>—</ng-template>
                 </td>
@@ -281,6 +353,184 @@
             </tbody>
           </table>
           <p class="summary-foot">Green = better, red = worse (for spend, CAC and CPL, lower is better). The latest month is month-to-date as entered in the sheet, so a month still in progress will naturally look lower.</p>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marketing Spent drill-down: per-product totals for the month (stacked above the summary popup). -->
+  <div class="modal-overlay stacked" *ngIf="showMarketingModal" (click)="closeMarketingModal()">
+    <div class="modal-content summary-modal detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🛍️ Marketing Spent — {{ components?.monthLabel || summaryMonthKey }}</h2>
+        <button type="button" class="btn-close" (click)="closeMarketingModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="loadingComponents" class="loading-inline">Loading...</div>
+        <div *ngIf="componentsError" class="error">{{ componentsError }}</div>
+
+        <ng-container *ngIf="components && !componentsError">
+          <table class="summary-table" *ngIf="marketingItems.length > 0">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="num">Spent</th>
+                <th class="num">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let it of marketingItems">
+                <td class="metric-name">{{ it.label }}</td>
+                <td class="num strong">₹{{ it.gross | number: '1.0-0' }}</td>
+                <td class="num">{{ it.gross / marketingTotal * 100 | number: '1.0-1' }}%</td>
+              </tr>
+              <tr class="total-row">
+                <td>Total</td>
+                <td class="num">₹{{ marketingTotal | number: '1.0-0' }}</td>
+                <td class="num">100%</td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="marketingItems.length === 0" class="no-data">No marketing spend is recorded for this month.</div>
+          <p class="summary-foot">Total spent on each product in the month (not transaction by transaction), as entered in your Marketing tab, plus UGC &amp; Influencer cost.</p>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <!-- MER drill-down: one mode (Gross / Net) at a time, a result card that stays put while the list scrolls,
+       and tick boxes to recalculate without some items. -->
+  <div class="modal-overlay stacked" *ngIf="showMerModal" (click)="closeMerModal()">
+    <div class="modal-content summary-modal detail-modal mer-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>⚖️ MER — {{ components?.monthLabel || summaryMonthKey }}</h2>
+        <div class="mer-toggle" role="group" aria-label="MER basis">
+          <button type="button" [class.active]="merMode === 'gross'" (click)="setMerMode('gross')">Gross</button>
+          <button type="button" [class.active]="merMode === 'net'" (click)="setMerMode('net')">Net</button>
+        </div>
+        <button type="button" class="btn-close" (click)="closeMerModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="loadingComponents" class="loading-inline">Loading...</div>
+        <div *ngIf="componentsError" class="error">{{ componentsError }}</div>
+
+        <ng-container *ngIf="components && !componentsError">
+          <!-- Sticky: stays visible at the top while the item lists scroll underneath. -->
+          <div class="mer-sticky">
+            <div class="mer-box" [class.net]="merMode === 'net'">
+              <div class="mer-box-main">
+                <span class="mer-label">MER ({{ merMode === 'gross' ? 'Gross' : 'Net' }})</span>
+                <span class="mer-value">{{ merLive !== null ? (merLive | number: '1.0-2') + 'x' : '—' }}</span>
+              </div>
+              <div class="mer-box-side">
+                <span>Revenue <strong>₹{{ merRevenue | number: '1.0-0' }}</strong></span>
+                <span>÷ Spend <strong>₹{{ merSpend | number: '1.0-0' }}</strong></span>
+                <span class="mer-sub">{{ merMode === 'gross' ? 'gross revenue ÷ spend with GST' : 'net revenue ÷ spend without GST' }}</span>
+              </div>
+            </div>
+            <div class="mer-note" [class.changed]="merExcluded.size > 0">
+              <ng-container *ngIf="merExcluded.size === 0">All items included — same as the dashboard ({{ merDashboard | number: '1.0-2' }}x). Untick any item below to recalculate.</ng-container>
+              <ng-container *ngIf="merExcluded.size > 0">Without {{ merExcluded.size }} item{{ merExcluded.size > 1 ? 's' : '' }} (dashboard: {{ merDashboard | number: '1.0-2' }}x)
+                <button type="button" class="link-btn" (click)="resetMer()">Reset</button></ng-container>
+            </div>
+          </div>
+
+          <div class="mer-banner revenue">
+            <span class="mer-banner-title">Revenue</span>
+            <span class="mer-banner-total">₹{{ merRevenue | number: '1.0-0' }}</span>
+          </div>
+          <table class="summary-table mer-table">
+            <tbody>
+              <tr *ngFor="let it of components.revenue" [class.excluded]="!isMerIncluded(it.key)">
+                <td class="chk"><input type="checkbox" [checked]="isMerIncluded(it.key)" (change)="toggleMerItem(it.key)" [attr.aria-label]="'Include ' + it.label"></td>
+                <td class="metric-name">{{ it.label }}</td>
+                <td class="num">{{ merAmount(it) ? '₹' + (merAmount(it) | number: '1.0-0') : '–' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="mer-banner spend">
+            <span class="mer-banner-title">Spend<span class="mer-banner-sub">{{ merMode === 'gross' ? 'ads with GST' : 'ads without GST' }} · tools &amp; UGC as entered</span></span>
+            <span class="mer-banner-total">₹{{ merSpend | number: '1.0-0' }}</span>
+          </div>
+          <table class="summary-table mer-table">
+            <tbody>
+              <tr *ngFor="let it of components.spend" [class.excluded]="!isMerIncluded(it.key)">
+                <td class="chk"><input type="checkbox" [checked]="isMerIncluded(it.key)" (change)="toggleMerItem(it.key)" [attr.aria-label]="'Include ' + it.label"></td>
+                <td class="metric-name">{{ it.label }}</td>
+                <td class="num">{{ merAmount(it) ? '₹' + (merAmount(it) | number: '1.0-0') : '–' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <!-- LTV drill-down: total revenue ÷ paid customers, with tick boxes and a value card that stays put. -->
+  <div class="modal-overlay stacked" *ngIf="showLtvModal" (click)="closeLtvModal()">
+    <div class="modal-content summary-modal detail-modal mer-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>💎 LTV — {{ components?.monthLabel || summaryMonthKey }}</h2>
+        <div class="mer-toggle" role="group" aria-label="LTV basis">
+          <button type="button" [class.active]="ltvMode === 'gross'" (click)="setLtvMode('gross')">Gross</button>
+          <button type="button" [class.active]="ltvMode === 'net'" (click)="setLtvMode('net')">Net</button>
+        </div>
+        <button type="button" class="btn-close" (click)="closeLtvModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="loadingComponents" class="loading-inline">Loading...</div>
+        <div *ngIf="componentsError" class="error">{{ componentsError }}</div>
+
+        <ng-container *ngIf="components && !componentsError">
+          <div class="mer-sticky">
+            <div class="mer-box ltv" [class.net]="ltvMode === 'net'">
+              <div class="mer-box-main">
+                <span class="mer-label">LTV ({{ ltvMode === 'gross' ? 'Gross' : 'Net' }})</span>
+                <span class="mer-value">{{ ltvLive !== null ? '₹' + (ltvLive | number: '1.0-0') : '—' }}</span>
+              </div>
+              <div class="mer-box-side">
+                <span>Revenue <strong>₹{{ ltvRevenue | number: '1.0-0' }}</strong></span>
+                <span>÷ Customers <strong>{{ ltvCustomers | number: '1.0-0' }}</strong></span>
+                <span class="mer-sub">total revenue ÷ paid customers</span>
+              </div>
+            </div>
+            <div class="mer-note" [class.changed]="ltvChanged">
+              <ng-container *ngIf="!ltvChanged">Default: every revenue source ÷ new paid customers — same as the dashboard (₹{{ ltvDashboard | number: '1.0-0' }}). Untick or tick items below to recalculate.</ng-container>
+              <ng-container *ngIf="ltvChanged">Recalculated (dashboard: ₹{{ ltvDashboard | number: '1.0-0' }})
+                <button type="button" class="link-btn" (click)="resetLtv()">Reset</button></ng-container>
+            </div>
+          </div>
+
+          <div class="mer-banner revenue">
+            <span class="mer-banner-title">Revenue<span class="mer-banner-sub">{{ ltvMode === 'gross' ? 'gross, GST included' : 'net of GST' }} · brokerage as entered</span></span>
+            <span class="mer-banner-total">₹{{ ltvRevenue | number: '1.0-0' }}</span>
+          </div>
+          <table class="summary-table mer-table">
+            <tbody>
+              <tr *ngFor="let it of components.revenue" [class.excluded]="!isLtvIncluded(it.key)">
+                <td class="chk"><input type="checkbox" [checked]="isLtvIncluded(it.key)" (change)="toggleLtvItem(it.key)" [attr.aria-label]="'Include ' + it.label"></td>
+                <td class="metric-name">{{ it.label }}</td>
+                <td class="num">{{ ltvAmount(it) ? '₹' + (ltvAmount(it) | number: '1.0-0') : '–' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="mer-banner customers">
+            <span class="mer-banner-title">Customers<span class="mer-banner-sub">new paid users · renewals are existing customers, tick to count them</span></span>
+            <span class="mer-banner-total">{{ ltvCustomers | number: '1.0-0' }}</span>
+          </div>
+          <table class="summary-table mer-table">
+            <tbody>
+              <tr *ngFor="let it of components.customers" [class.excluded]="!isLtvIncluded(it.key)">
+                <td class="chk"><input type="checkbox" [checked]="isLtvIncluded(it.key)" (change)="toggleLtvItem(it.key)" [attr.aria-label]="'Include ' + it.label"></td>
+                <td class="metric-name">{{ it.label }}</td>
+                <td class="num">{{ it.value ? (it.value | number: '1.0-0') : '–' }}</td>
+              </tr>
+            </tbody>
+          </table>
         </ng-container>
       </div>
     </div>

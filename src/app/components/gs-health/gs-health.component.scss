@@ -713,3 +713,482 @@
 .summary-modal .summary-table {
   transition: opacity 0.15s ease;
 }
+
+// ============ Drill-down popups (Marketing Spent / MER) ============
+.modal-overlay.stacked {
+  z-index: 1100;
+}
+
+.modal-content.summary-modal.detail-modal {
+  max-width: 640px;
+}
+
+.summary-modal {
+  .summary-table {
+    tr.clickable {
+      cursor: pointer;
+
+      &:hover td {
+        background: #f0fdf4;
+      }
+    }
+
+    .row-hint {
+      margin-left: 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #15803d;
+      background: #ecfdf3;
+      border-radius: 999px;
+      padding: 0.1rem 0.5rem;
+      white-space: nowrap;
+    }
+
+    .total-row td {
+      font-weight: 800;
+      color: #14532d;
+      background: #f9fafb;
+      border-top: 2px solid #e5e7eb;
+    }
+
+    .chk {
+      width: 2rem;
+      text-align: center;
+      padding-left: 0.4rem;
+      padding-right: 0;
+
+      input[type='checkbox'] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: #15803d;
+      }
+    }
+
+    tr.excluded td:not(.chk) {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
+  }
+
+  .mer-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .mer-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #c7d2fe;
+    background: #eef2ff;
+    border-radius: 12px;
+
+    .mer-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #4338ca;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .mer-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #312e81;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mer-sub {
+      font-size: 0.72rem;
+      color: #6b7280;
+      line-height: 1.3;
+    }
+  }
+
+  .mer-note {
+    margin-bottom: 1rem;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.78rem;
+    color: #6b7280;
+    background: #f9fafb;
+    border-radius: 8px;
+
+    &.changed {
+      color: #92400e;
+      background: #fffbeb;
+    }
+
+    .link-btn {
+      margin-left: 0.4rem;
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #15803d;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  }
+
+  .mer-section-title {
+    margin: 1rem 0 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #14532d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+
+    .mer-section-sub {
+      margin-left: 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #9ca3af;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+  }
+}
+
+// ============ MER popup: header toggle, sticky result card, highlighted section cards ============
+.modal-content.summary-modal.mer-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // the body scrolls instead, so the header and the sticky result card stay put
+}
+
+.mer-modal {
+  .modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-top: 0;
+  }
+
+  .mer-toggle {
+    display: inline-flex;
+    margin: 0 auto 0 1rem;
+    padding: 0.2rem;
+    background: #eef1ee;
+    border-radius: 999px;
+
+    button {
+      padding: 0.3rem 0.95rem;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #4b5563;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+
+      &.active {
+        background: #ffffff;
+        color: #312e81;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+    }
+  }
+
+  .mer-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 1rem 0 0.7rem;
+    background: #ffffff;
+    box-shadow: 0 6px 8px -8px rgba(0, 0, 0, 0.25);
+  }
+
+  .mer-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.6rem;
+    padding: 0.8rem 1.1rem;
+    border: 1px solid #c7d2fe;
+    background: #eef2ff;
+    border-radius: 12px;
+
+    &.net {
+      border-color: #ddd6fe;
+      background: #f5f3ff;
+    }
+
+    .mer-box-main {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+    }
+
+    .mer-value {
+      font-size: 2rem;
+      line-height: 1.1;
+    }
+
+    .mer-box-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.1rem;
+      font-size: 0.8rem;
+      color: #4b5563;
+      text-align: right;
+
+      strong {
+        color: #1f2937;
+      }
+    }
+  }
+
+  .mer-note {
+    margin-bottom: 0;
+  }
+
+  .mer-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1rem 0 0.4rem;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    border-left: 5px solid;
+
+    .mer-banner-title {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.85rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .mer-banner-sub {
+      margin-top: 0.1rem;
+      font-size: 0.68rem;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
+      opacity: 0.8;
+    }
+
+    .mer-banner-total {
+      font-size: 1.05rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &.revenue {
+      background: #ecfdf3;
+      border-color: #16a34a;
+      color: #14532d;
+    }
+
+    &.spend {
+      background: #fff7ed;
+      border-color: #ea580c;
+      color: #9a3412;
+    }
+  }
+}
+
+.summary-modal .summary-table .row-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+// ============ Chart Report popup ============
+.modal-content.summary-modal.chart-modal {
+  max-width: 1000px;
+}
+
+.chart-modal {
+  .chart-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    background: #f9fafb;
+    border: 1px solid #eef0f2;
+    border-radius: 12px;
+  }
+
+  .chart-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 150px;
+
+    > span {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    select {
+      padding: 0.5rem 0.65rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #ffffff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #1f2937;
+      cursor: pointer;
+
+      &:focus {
+        outline: 2px solid #86efac;
+      }
+    }
+
+    &.chart-field-wide {
+      flex: 1 1 280px;
+    }
+  }
+
+  .chart-toggle {
+    display: inline-flex;
+    padding: 0.2rem;
+    background: #e5e7eb;
+    border-radius: 10px;
+
+    button {
+      padding: 0.38rem 0.9rem;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #4b5563;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+
+      &.active {
+        background: #ffffff;
+        color: #14532d;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .chart-headline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin-bottom: 0.8rem;
+
+    strong {
+      font-size: 1.05rem;
+      color: #14532d;
+    }
+
+    span {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+  }
+
+  .chart-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .chart-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 0.75rem;
+    background: #ffffff;
+    border: 1px solid #eef0f2;
+    border-radius: 10px;
+
+    .chart-stat-label {
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .chart-stat-value {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #1f2937;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .chart-stat-sub {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #6b7280;
+    }
+
+    &.good {
+      border-color: #bbf7d0;
+
+      .chart-stat-sub {
+        color: #15803d;
+      }
+    }
+
+    &.bad {
+      border-color: #fecaca;
+
+      .chart-stat-sub {
+        color: #dc2626;
+      }
+    }
+  }
+
+  .chart-frame {
+    padding: 0.5rem 0.25rem 0;
+    border: 1px solid #eef0f2;
+    border-radius: 12px;
+    transition: opacity 0.15s ease;
+  }
+}
+
+// ============ LTV popup: green value card, blue customers banner ============
+.mer-modal {
+  .mer-box.ltv {
+    border-color: #a7f3d0;
+    background: #ecfdf5;
+
+    .mer-label {
+      color: #047857;
+    }
+
+    .mer-value {
+      color: #064e3b;
+    }
+
+    &.net {
+      border-color: #99f6e4;
+      background: #f0fdfa;
+    }
+  }
+
+  .mer-banner.customers {
+    background: #eff6ff;
+    border-color: #2563eb;
+    color: #1e3a8a;
+  }
+}
