@@ -281,6 +281,55 @@
     </ng-container>
   </section>
 
+  <!-- Current Webinar Conversion %: pick any set of webinar dates and compare, for each, what share
+       of its paid users (Webinar Lead group) registered for that exact webinar rather than an earlier
+       one or a referral code. -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
+    <h2 class="section-title">
+      Current Webinar Conversion %
+      <span class="section-note">ℹ️ For each selected date: of everyone who paid (Webinar Lead group), the % who registered for that SAME webinar — the "Current Webinar" row from the source breakdown above. Pick any combination of dates to compare; the dashed line is the average % across whichever bars are shown.</span>
+    </h2>
+
+    <div class="mini-controls">
+      <span class="filter-label">Webinars:</span>
+      <div class="button-group">
+        <button type="button" (click)="selectLatestConversionDates(6)">Latest 6</button>
+        <button type="button" (click)="selectLatestConversionDates(12)">Latest 12</button>
+        <button type="button" (click)="selectAllConversionDates()">All ({{ webinarDates.length }})</button>
+        <button type="button" (click)="clearConversionDates()">Clear</button>
+      </div>
+    </div>
+
+    <div class="custom-date-picker" *ngIf="!loadingDates">
+      <span class="date-chip custom-date-chip"
+        *ngFor="let d of webinarDates"
+        [class.selected]="isConversionDateSelected(d.date.slice(0,10))"
+        (click)="toggleConversionDate(d.date.slice(0,10))">
+        {{ d.label }}
+      </span>
+    </div>
+
+    <div *ngIf="conversionSelectedDates.length === 0" class="no-data">Select one or more webinar dates above to compare.</div>
+    <div *ngIf="conversionLoading" class="loading-inline">Loading...</div>
+    <div *ngIf="conversionError" class="error">{{ conversionError }}</div>
+
+    <ng-container *ngIf="!conversionLoading && !conversionError && conversionBars.length > 0">
+      <app-echart-conversion-bar
+        [categories]="conversionCategories"
+        [values]="conversionPercentages"
+        [counts]="conversionCounts"
+        [totals]="conversionTotals"
+        [names]="conversionNames"
+        [average]="conversionAverage"
+        seriesName="Current Webinar %"
+        color="#2d7d3d">
+      </app-echart-conversion-bar>
+      <p class="section-subtitle" *ngIf="conversionAverage !== null">
+        Average across the {{ conversionBars.length }} selected webinar(s): <strong>{{ conversionAverage }}%</strong>
+      </p>
+    </ng-container>
+  </section>
+
   <!-- People-in-source popup — deliberately a sibling of every .segment-card, not nested inside
        one. .segment-card has a hover `transform`, which creates a new containing block for any
        `position: fixed` descendant, so the overlay would render pinned to that card's box instead

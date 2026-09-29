@@ -7,6 +7,7 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { PERMISSIONS } from '../../config/permissions';
 import { EchartBarComponent } from '../shared/echart-bar/echart-bar.component';
+import { EchartConversionBarComponent } from '../shared/echart-conversion-bar/echart-conversion-bar.component';
 
 type FunnelPeriod = 'thisMonth' | 'lastMonth' | 'custom';
 
@@ -80,6 +81,17 @@ interface ChartBatch {
   breakdown: { source: string; count: number; percentage: number }[];
 }
 
+// One bar in the "Current Webinar Conversion %" segment: of everyone paid (Webinar Lead group) for
+// this exact date, how many registered for that SAME webinar (the "Current Webinar" breakdown row).
+interface ConversionBar {
+  key: string; // YYYY-MM-DD
+  label: string; // the date's human label, e.g. "21Jun2025"
+  webinarNames: string[];
+  paid: number;
+  currentCount: number;
+  pct: number | null; // null when paid === 0 (nothing to take a percentage of)
+}
+
 interface BatchDetail {
   label: string;
   webinarNames: string[];
@@ -104,7 +116,7 @@ type BatchDetailMode = 'latest' | 'custom';
 @Component({
   selector: 'app-funnel-analysis',
   standalone: true,
-  imports: [CommonModule, FormsModule, EchartBarComponent],
+  imports: [CommonModule, FormsModule, EchartBarComponent, EchartConversionBarComponent],
   templateUrl: './funnel-analysis.component.html',
   styleUrls: ['./funnel-analysis.component.scss'],
 })
@@ -152,6 +164,15 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
   selectedBreakdown: BatchBreakdownRow | null = null;
 
   sourceChartMode: SourceChartMode = 'total';
+
+  // ============ Current Webinar Conversion % (new segment, always the Webinar Lead group) ============
+  // User-picked subset of the master webinar dates to compare; defaults to the latest 6 once the
+  // date list has loaded, so the chart isn't empty on first render.
+  conversionSelectedDates: string[] = [];
+  conversionBars: ConversionBar[] = [];
+  conversionLoading = false;
+  conversionError: string | null = null;
+  private conversionDefaultsSet = false;
 
   // ============ Webinar date management ============
   webinarDates: WebinarDate[] = [];
@@ -500,6 +521,7 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success && response.data) {
             this.webinarDates = response.data;
+            this.initConversionDefaults();
           }
           this.loadingDates = false;
         },
@@ -508,6 +530,115 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
           this.loadingDates = false;
         },
       });
+  }
+
+  // ============ Current Webinar Conversion % ============
+  private initConversionDefaults() {
+    if (this.conversionDefaultsSet || this.webinarDates.length === 0) return;
+    this.conversionDefaultsSet = true;
+    this.selectLatestConversionDates(6);
+  }
+
+  isConversionDateSelected(key: string): boolean {
+    return this.conversionSelectedDates.includes(key);
+  }
+
+  toggleConversionDate(key: string) {
+    const i = this.conversionSelectedDates.indexOf(key);
+    if (i >= 0) this.conversionSelectedDates.splice(i, 1);
+    else this.conversionSelectedDates.push(key);
+    this.loadConversionData();
+  }
+
+  selectAllConversionDates() {
+    this.conversionSelectedDates = this.webinarDates.map((d) => d.date.slice(0, 10));
+    this.loadConversionData();
+  }
+
+  selectLatestConversionDates(n: number) {
+    this.conversionSelectedDates = this.webinarDates.map((d) => d.date.slice(0, 10)).slice(-n);
+    this.loadConversionData();
+  }
+
+  clearConversionDates() {
+    this.conversionSelectedDates = [];
+    this.conversionBars = [];
+    this.conversionError = null;
+  }
+
+  private conversionLabelFor(key: string): string {
+    return this.webinarDates.find((d) => d.date.slice(0, 10) === key)?.label || key;
+  }
+
+  loadConversionData() {
+    if (this.conversionSelectedDates.length === 0) {
+      this.conversionBars = [];
+      return;
+    }
+
+    this.conversionLoading = true;
+    this.conversionError = null;
+
+    // Chart left-to-right in date order, not the order the user happened to click chips in.
+    const orderedKeys = this.webinarDates
+      .map((d) => d.date.slice(0, 10))
+      .filter((k) => this.conversionSelectedDates.includes(k));
+
+    this.apiService
+      .getFunnelBatchDetail(orderedKeys, false, ['webinar'])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            const list: BatchDetail[] = response.data.webinar || [];
+            this.conversionBars = orderedKeys.map((key) => {
+              const b = list.find((x) => x.label === key);
+              if (!b) {
+                return { key, label: this.conversionLabelFor(key), webinarNames: [], paid: 0, currentCount: 0, pct: null };
+              }
+              const currentCount = b.breakdown.find((r) => r.source === 'Current Webinar')?.count || 0;
+              const pct = b.paid > 0 ? parseFloat(((currentCount / b.paid) * 100).toFixed(1)) : null;
+              return { key, label: this.conversionLabelFor(key), webinarNames: b.webinarNames, paid: b.paid, currentCount, pct };
+            });
+          } else {
+            this.conversionError = 'Failed to load conversion data';
+          }
+          this.conversionLoading = false;
+        },
+        error: (error) => {
+          this.conversionError = 'Failed to load conversion data';
+          console.error(error);
+          this.conversionLoading = false;
+        },
+      });
+  }
+
+  get conversionCategories(): string[] {
+    return this.conversionBars.map((b) => b.label);
+  }
+
+  get conversionPercentages(): (number | null)[] {
+    return this.conversionBars.map((b) => b.pct);
+  }
+
+  get conversionCounts(): number[] {
+    return this.conversionBars.map((b) => b.currentCount);
+  }
+
+  get conversionTotals(): number[] {
+    return this.conversionBars.map((b) => b.paid);
+  }
+
+  get conversionNames(): string[] {
+    return this.conversionBars.map((b) => b.webinarNames.join(', '));
+  }
+
+  // Average of only the bars that actually had paid users — a date with 0 paid has no rate to
+  // average in, and letting it count as 0% would understate every other bar's average.
+  get conversionAverage(): number | null {
+    const vals = this.conversionBars.map((b) => b.pct).filter((v): v is number => v !== null);
+    if (vals.length === 0) return null;
+    return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1));
   }
 
   toggleDateManager() {
