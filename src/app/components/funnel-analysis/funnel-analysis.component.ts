@@ -92,6 +92,19 @@ interface ConversionBar {
   pct: number | null; // null when paid === 0 (nothing to take a percentage of)
 }
 
+// One bar in the "Previous Webinar Conversion %" segment: of everyone paid for this batch, how many
+// registered for the webinar immediately BEFORE it in the master Webinar Dates list — "immediately
+// before" is worked out per bar, so it shifts automatically as the date selection changes.
+interface PrevWebinarBar {
+  key: string;
+  label: string;
+  prevKey: string | null; // null only for the very first master date — nothing comes before it
+  prevLabel: string | null;
+  paid: number;
+  prevCount: number;
+  pct: number | null; // null when paid === 0 or there's no earlier webinar to compare against
+}
+
 interface BatchDetail {
   label: string;
   webinarNames: string[];
@@ -173,6 +186,14 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
   conversionLoading = false;
   conversionError: string | null = null;
   private conversionDefaultsSet = false;
+
+  // ============ Previous Webinar Conversion % (same idea, but vs. whichever webinar came right
+  // before each selected date in the master list — dynamic per bar, not a fixed date) ============
+  prevSelectedDates: string[] = [];
+  prevBars: PrevWebinarBar[] = [];
+  prevLoading = false;
+  prevError: string | null = null;
+  private prevDefaultsSet = false;
 
   // ============ Webinar date management ============
   webinarDates: WebinarDate[] = [];
@@ -522,6 +543,7 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
           if (response.success && response.data) {
             this.webinarDates = response.data;
             this.initConversionDefaults();
+            this.initPrevDefaults();
           }
           this.loadingDates = false;
         },
@@ -530,6 +552,11 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
           this.loadingDates = false;
         },
       });
+  }
+
+  // Master webinar dates as YYYY-MM-DD keys, oldest first (shared by both conversion segments).
+  get masterDateKeys(): string[] {
+    return this.webinarDates.map((d) => d.date.slice(0, 10));
   }
 
   // ============ Current Webinar Conversion % ============
@@ -637,6 +664,113 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
   // average in, and letting it count as 0% would understate every other bar's average.
   get conversionAverage(): number | null {
     const vals = this.conversionBars.map((b) => b.pct).filter((v): v is number => v !== null);
+    if (vals.length === 0) return null;
+    return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1));
+  }
+
+  // ============ Previous Webinar Conversion % ============
+  private initPrevDefaults() {
+    if (this.prevDefaultsSet || this.webinarDates.length === 0) return;
+    this.prevDefaultsSet = true;
+    this.selectLatestPrevDates(6);
+  }
+
+  isPrevDateSelected(key: string): boolean {
+    return this.prevSelectedDates.includes(key);
+  }
+
+  togglePrevDate(key: string) {
+    const i = this.prevSelectedDates.indexOf(key);
+    if (i >= 0) this.prevSelectedDates.splice(i, 1);
+    else this.prevSelectedDates.push(key);
+    this.loadPrevData();
+  }
+
+  selectAllPrevDates() {
+    this.prevSelectedDates = [...this.masterDateKeys];
+    this.loadPrevData();
+  }
+
+  selectLatestPrevDates(n: number) {
+    this.prevSelectedDates = this.masterDateKeys.slice(-n);
+    this.loadPrevData();
+  }
+
+  clearPrevDates() {
+    this.prevSelectedDates = [];
+    this.prevBars = [];
+    this.prevError = null;
+  }
+
+  loadPrevData() {
+    if (this.prevSelectedDates.length === 0) {
+      this.prevBars = [];
+      return;
+    }
+
+    this.prevLoading = true;
+    this.prevError = null;
+
+    const masterKeys = this.masterDateKeys;
+    const orderedKeys = masterKeys.filter((k) => this.prevSelectedDates.includes(k));
+
+    this.apiService
+      .getFunnelBatchDetail(orderedKeys, false, ['webinar'])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            const list: BatchDetail[] = response.data.webinar || [];
+            this.prevBars = orderedKeys.map((key) => {
+              const idx = masterKeys.indexOf(key);
+              const prevKey = idx > 0 ? masterKeys[idx - 1] : null;
+              const prevLabel = prevKey ? this.conversionLabelFor(prevKey) : null;
+              const b = list.find((x) => x.label === key);
+
+              if (!b) {
+                return { key, label: this.conversionLabelFor(key), prevKey, prevLabel, paid: 0, prevCount: 0, pct: null };
+              }
+              const prevCount = prevKey ? b.breakdown.find((r) => r.source === prevKey)?.count || 0 : 0;
+              const pct = prevKey && b.paid > 0 ? parseFloat(((prevCount / b.paid) * 100).toFixed(1)) : null;
+              return { key, label: this.conversionLabelFor(key), prevKey, prevLabel, paid: b.paid, prevCount, pct };
+            });
+          } else {
+            this.prevError = 'Failed to load conversion data';
+          }
+          this.prevLoading = false;
+        },
+        error: (error) => {
+          this.prevError = 'Failed to load conversion data';
+          console.error(error);
+          this.prevLoading = false;
+        },
+      });
+  }
+
+  get prevCategories(): string[] {
+    return this.prevBars.map((b) => b.label);
+  }
+
+  get prevPercentages(): (number | null)[] {
+    return this.prevBars.map((b) => b.pct);
+  }
+
+  get prevCounts(): number[] {
+    return this.prevBars.map((b) => b.prevCount);
+  }
+
+  get prevTotals(): number[] {
+    return this.prevBars.map((b) => b.paid);
+  }
+
+  // Per-bar context for the tooltip — which exact earlier date this bar is measured against, since
+  // that changes from bar to bar (unlike Current Webinar Conversion, where it's always "itself").
+  get prevContext(): string[] {
+    return this.prevBars.map((b) => (b.prevKey ? `vs ${b.prevLabel}` : 'No earlier webinar in your Manage Dates list'));
+  }
+
+  get prevAverage(): number | null {
+    const vals = this.prevBars.map((b) => b.pct).filter((v): v is number => v !== null);
     if (vals.length === 0) return null;
     return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1));
   }

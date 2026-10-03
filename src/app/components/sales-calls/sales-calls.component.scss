@@ -1,0 +1,530 @@
+.dashboard-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+
+  h1 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    color: #6b7280;
+    margin: 0.25rem 0 0 0;
+  }
+}
+
+.loading-inline {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.error {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  margin: 1rem 0;
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.no-data {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.metric-subsection-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 1.5rem 0 0.25rem 0;
+}
+
+// ============ Shared filter bar ============
+.filter-card {
+  padding-bottom: 1.1rem;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  position: relative;
+
+  .filter-label {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    flex-basis: 100%;
+  }
+
+  input[type='date'] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  select {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: white;
+    color: #1f2937;
+    min-width: 180px;
+  }
+
+  .range-sep {
+    color: #6b7280;
+    font-size: 0.85rem;
+  }
+}
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #14532d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+
+  &:hover:not(:disabled) {
+    background: #dcfce7;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .spin {
+    display: inline-block;
+    animation: refresh-spin 0.9s linear infinite;
+  }
+}
+
+@keyframes refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.agent-picker {
+  .picker-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    color: #1f2937;
+    font-size: 0.85rem;
+    cursor: pointer;
+    min-width: 160px;
+    justify-content: space-between;
+
+    &:hover {
+      background: #f3f4f6;
+    }
+
+    .caret {
+      font-size: 0.65rem;
+      color: #6b7280;
+    }
+  }
+
+  .picker-panel {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    z-index: 20;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    padding: 0.6rem;
+    min-width: 220px;
+  }
+
+  .picker-actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #f1f2f4;
+
+    button {
+      flex: 1;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: white;
+      color: #374151;
+      font-size: 0.78rem;
+      cursor: pointer;
+
+      &:hover {
+        background: #f3f4f6;
+      }
+    }
+  }
+
+  .picker-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.2rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+    cursor: pointer;
+
+    input[type='checkbox'] {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: #15803d;
+    }
+  }
+}
+
+.button-group {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+
+  button {
+    padding: 0.4rem 0.85rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: white;
+    color: #4b5563;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: #f3f4f6;
+    }
+
+    &.active {
+      background-color: #0369a1;
+      color: white;
+      border-color: #0369a1;
+    }
+  }
+}
+
+// ============ Sub-tab switcher (Calls / Leads) ============
+.subtab-switcher {
+  display: inline-flex;
+  gap: 0.35rem;
+  background: #eef1ee;
+  border-radius: 12px;
+  padding: 0.35rem;
+  margin-bottom: 1.5rem;
+}
+
+.subtab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 9px;
+  background: transparent;
+  color: #4b5563;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  .subtab-icon {
+    font-size: 1rem;
+  }
+
+  &:hover {
+    background: rgba(45, 125, 61, 0.08);
+  }
+
+  &.active {
+    background: white;
+    color: var(--primary-dark);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// ============ KPI cards — compact, same visual language as .segment-card's left-accent border,
+// sized for values that are composite strings ("64", "54.7% of total") not just a bare number.
+// (The shared app-stat-tile component uses a 2rem font meant for short numbers only — it looked
+// oversized/unpolished once this page started feeding it longer duration/count+% strings, so this
+// page uses its own compact card instead of that shared component.) ============
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: white;
+  border: 1px solid #eef0f2;
+  border-left: 3px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+    transform: translateY(-1px);
+  }
+
+  .kpi-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #1f2937;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kpi-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .kpi-label {
+    margin-top: 0.1rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  &.accent-blue { border-left-color: #2563eb; .kpi-sub { color: #2563eb; } }
+  &.accent-green { border-left-color: #16a34a; .kpi-sub { color: #16a34a; } }
+  &.accent-red { border-left-color: #dc2626; .kpi-sub { color: #dc2626; } }
+  &.accent-indigo { border-left-color: #4f46e5; .kpi-sub { color: #4f46e5; } }
+  &.accent-orange { border-left-color: #ea580c; .kpi-sub { color: #ea580c; } }
+  &.accent-purple { border-left-color: #7c3aed; .kpi-sub { color: #7c3aed; } }
+  &.accent-teal { border-left-color: #0d9488; .kpi-sub { color: #0d9488; } }
+}
+
+// ============ Tables ============
+.table-scroll {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #eef0f2;
+}
+
+.data-table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+
+  thead tr {
+    background-color: #f9fafb;
+  }
+
+  th {
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid #f1f2f4;
+    color: #374151;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #fbfbfc;
+  }
+
+  tbody tr:hover {
+    background-color: #f0f7ff;
+  }
+
+  .col-num {
+    text-align: right;
+  }
+
+  .rate-cell {
+    font-weight: 700;
+    color: #0369a1;
+  }
+
+  .totals-row {
+    font-weight: 700;
+    color: #1f2937;
+    background-color: #f9fafb;
+
+    td {
+      border-bottom: none;
+      border-top: 2px solid #d1d5db;
+    }
+  }
+}
+
+.clickable-rows tbody tr.linked {
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f0fdf4 !important;
+  }
+}
+
+.recording-link {
+  color: #0369a1;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ============ Pagination ============
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+
+  .pagination-info {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+
+  .pagination-buttons {
+    display: flex;
+    gap: 0.5rem;
+
+    button {
+      padding: 0.35rem 0.9rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: white;
+      color: #374151;
+      font-size: 0.82rem;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        background: #f3f4f6;
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+// ============ Follow-up history popup ============
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 10px;
+  width: 92%;
+  max-width: 760px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  background: white;
+
+  h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: #14532d;
+  }
+
+  .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      color: #1f2937;
+    }
+  }
+}
+
+.modal-body {
+  padding: 1.25rem 1.4rem 1.4rem;
+}
+
+.summary-foot {
+  margin: 0.9rem 0 0;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}

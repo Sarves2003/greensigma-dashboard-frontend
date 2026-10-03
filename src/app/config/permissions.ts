@@ -38,4 +38,7 @@ export const PERMISSIONS = {
 
   emandateTracker: 'tab:emandate-tracker',
   emandateTrackerMain: 'card:emandate-tracker:main',
+
+  salesCalls: 'tab:sales-calls',
+  salesCallsMain: 'card:sales-calls:main',
 } as const;

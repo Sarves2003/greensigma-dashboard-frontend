@@ -118,6 +118,7 @@ export class AuthService {
     { permission: 'tab:usage-analysis', path: '/usage-analysis' },
     { permission: 'tab:activation-tracker', path: '/activation-tracker' },
     { permission: 'tab:emandate-tracker', path: '/emandate-tracker' },
+    { permission: 'tab:sales-calls', path: '/sales-calls' },
   ];
 
   firstAccessibleRoute(): string {

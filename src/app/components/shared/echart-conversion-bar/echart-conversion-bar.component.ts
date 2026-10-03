@@ -36,6 +36,9 @@ export class EchartConversionBarComponent implements AfterViewInit, OnChanges, O
   @Input() average: number | null = null;
   @Input() seriesName = 'Conversion %';
   @Input() color = '#2d7d3d';
+  // Shown when a bar has no percentage at all (see `values`) — the reason differs by chart (no paid
+  // users that date vs. nothing earlier to compare against), so each usage supplies its own wording.
+  @Input() noDataLabel = 'No paid users on this date';
 
   @ViewChild('chartEl', { static: true }) chartEl!: ElementRef<HTMLDivElement>;
 
@@ -81,7 +84,7 @@ export class EchartConversionBarComponent implements AfterViewInit, OnChanges, O
             if (name) html += `<div style="color:#6b7280;margin-bottom:4px">${name}</div>`;
             html +=
               pct === null || pct === undefined
-                ? `<div>No paid users on this date</div>`
+                ? `<div>${this.noDataLabel}</div>`
                 : `<div>${this.seriesName}: <b>${pct.toFixed(1)}%</b></div><div style="color:#6b7280">${count} of ${total} paid</div>`;
             return html;
           },

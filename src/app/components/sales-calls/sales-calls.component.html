@@ -1,0 +1,461 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Overview</h1>
+    <p class="subtitle">Sales call &amp; lead performance, read live from Zoho CRM</p>
+  </div>
+
+  <!-- ============ Shared filter bar — applies to both Calls and Leads below ============ -->
+  <section class="segment-card filter-card" *ngIf="authService.hasPermission(permissions.salesCallsMain)">
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-label">Date Range</span>
+        <div class="button-group">
+          <button [class.active]="datePreset === 'today'" (click)="onPresetChange('today')">Today</button>
+          <button [class.active]="datePreset === 'yesterday'" (click)="onPresetChange('yesterday')">Yesterday</button>
+          <button [class.active]="datePreset === 'last7days'" (click)="onPresetChange('last7days')">Last 7 Days</button>
+          <button [class.active]="datePreset === 'last15days'" (click)="onPresetChange('last15days')">Last 15 Days</button>
+          <button [class.active]="datePreset === 'last30days'" (click)="onPresetChange('last30days')">Last 30 Days</button>
+          <button [class.active]="datePreset === 'thisMonth'" (click)="onPresetChange('thisMonth')">This Month</button>
+          <button [class.active]="datePreset === 'lastMonth'" (click)="onPresetChange('lastMonth')">Last Month</button>
+          <button [class.active]="datePreset === 'custom'" (click)="onPresetChange('custom')">Custom</button>
+        </div>
+        <ng-container *ngIf="datePreset === 'custom'">
+          <input type="date" [(ngModel)]="customStart" (change)="onCustomRangeChange()">
+          <span class="range-sep">to</span>
+          <input type="date" [(ngModel)]="customEnd" (change)="onCustomRangeChange()">
+        </ng-container>
+      </div>
+
+      <div class="filter-group agent-picker">
+        <span class="filter-label">Agent</span>
+        <button type="button" class="picker-toggle" (click)="toggleAgentPicker()">
+          {{ agentFilterLabel }} <span class="caret">{{ showAgentPicker ? '▲' : '▼' }}</span>
+        </button>
+        <div class="picker-panel" *ngIf="showAgentPicker">
+          <div class="picker-actions">
+            <button type="button" (click)="selectAllAgents()">Select All</button>
+            <button type="button" (click)="clearAgents()">Clear</button>
+          </div>
+          <label class="picker-option" *ngFor="let a of allAgents">
+            <input type="checkbox" [checked]="isAgentSelected(a)" (change)="toggleAgent(a)">
+            {{ a }}
+          </label>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Lead Funnel</span>
+        <select [ngModel]="leadSource" (ngModelChange)="onLeadSourceChange($event)">
+          <option value="all">All Funnels</option>
+          <option *ngFor="let s of allLeadSources" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+
+      <button type="button" class="refresh-btn" (click)="refreshAll()" [disabled]="loading" title="Re-fetch everything on this page from Zoho CRM">
+        <span [class.spin]="loading">🔄</span> Refresh
+      </button>
+    </div>
+    <span class="section-note">ℹ️ "Lead Funnel" = the real Zoho CRM Lead Source field (confirmed live — no "Free User" value exists in your CRM). Filters apply to both tabs below.</span>
+  </section>
+
+  <div class="subtab-switcher" *ngIf="authService.hasPermission(permissions.salesCallsMain)">
+    <button type="button" class="subtab-btn" [class.active]="activeSubTab === 'calls'" (click)="setSubTab('calls')">
+      <span class="subtab-icon">📞</span> Calls
+    </button>
+    <button type="button" class="subtab-btn" [class.active]="activeSubTab === 'leads'" (click)="setSubTab('leads')">
+      <span class="subtab-icon">🧑‍💼</span> Leads
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="loading-inline">Loading from Zoho CRM...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <!-- ============ CALLS ============ -->
+  <ng-container *ngIf="!loading && !error && activeSubTab === 'calls' && callsData">
+    <section class="segment-card">
+      <h2 class="section-title">
+        Call Performance
+        <span class="section-note">ℹ️ Per call attempt. Total = calls with a disposition set (a still-blank call is excluded). RNR = Ring No Response. Picked = Total − RNR. Not Qualified and Booked are both specific outcomes WITHIN Picked, not separate from it.</span>
+      </h2>
+
+      <div class="kpi-grid">
+        <div class="kpi-card accent-blue">
+          <span class="kpi-value">{{ callsData.kpis.totalCalls }}</span>
+          <span class="kpi-label">Total Calls Made</span>
+        </div>
+        <div class="kpi-card accent-green" title="Calls answered (any disposition other than RNR)">
+          <span class="kpi-value">{{ callsData.kpis.picked.count }}</span>
+          <span class="kpi-sub">{{ callsData.kpis.picked.pct }}% of total</span>
+          <span class="kpi-label">Call Picked</span>
+        </div>
+        <div class="kpi-card accent-red" title="Ring No Response">
+          <span class="kpi-value">{{ callsData.kpis.rnr.count }}</span>
+          <span class="kpi-sub">{{ callsData.kpis.rnr.pct }}% of total</span>
+          <span class="kpi-label">RNR / DP</span>
+        </div>
+        <div class="kpi-card accent-indigo" title="Picked calls that resulted in a Meeting Booked">
+          <span class="kpi-value">{{ callsData.team.booked }}</span>
+          <span class="kpi-sub">{{ callsData.team.bookedPctOfPicked }}% of picked</span>
+          <span class="kpi-label">Picked → Booked</span>
+        </div>
+        <div class="kpi-card accent-orange" title="Disposition = Not Qualified">
+          <span class="kpi-value">{{ callsData.kpis.notQualified.count }}</span>
+          <span class="kpi-sub">{{ callsData.kpis.notQualified.pct }}% of total</span>
+          <span class="kpi-label">Not Qualified</span>
+        </div>
+        <div class="kpi-card accent-indigo" title="Summed talk time across every PICKED call (RNR excluded) in the selected range/filters">
+          <span class="kpi-value">{{ formatDurationLong(callsData.kpis.totalCallDurationSec) }}</span>
+          <span class="kpi-label">Total Call Duration</span>
+        </div>
+        <div class="kpi-card accent-purple" title="Average duration of connected calls only (duration > 0s)">
+          <span class="kpi-value">{{ formatDuration(callsData.kpis.avgCallDurationSec) }}</span>
+          <span class="kpi-label">Avg Call Duration</span>
+        </div>
+        <div class="kpi-card accent-purple" title="Longest single connected call in the selected range/filters">
+          <span class="kpi-value">{{ formatDuration(callsData.kpis.maxCallDurationSec) }}</span>
+          <span class="kpi-label">Max Call Duration</span>
+        </div>
+        <div class="kpi-card accent-teal" title="Total dispositioned calls linked to a lead ÷ distinct leads called">
+          <span class="kpi-value">{{ callsData.kpis.avgFollowupsPerIndividual ?? '—' }}</span>
+          <span class="kpi-label">Avg Follow-ups / Individual</span>
+        </div>
+      </div>
+
+      <div class="metric-subsection-label">Agent Breakdown</div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th class="col-num">Total Calls</th>
+              <th class="col-num">RNR</th>
+              <th class="col-num">Picked</th>
+              <th class="col-num">Booked</th>
+              <th class="col-num">Not Qualified</th>
+              <th class="col-num">Picked % (of total)</th>
+              <th class="col-num">Booked % (of picked)</th>
+              <th class="col-num">Booked % (of total)</th>
+              <th class="col-num">Total Call Duration</th>
+              <th class="col-num">Avg Duration / Call (Picked)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of callsData.byAgent">
+              <td>{{ a.agent }}</td>
+              <td class="col-num">{{ a.total }}</td>
+              <td class="col-num">{{ a.rnr }}</td>
+              <td class="col-num">{{ a.picked }}</td>
+              <td class="col-num">{{ a.booked }}</td>
+              <td class="col-num">{{ a.notQualified }}</td>
+              <td class="col-num rate-cell">{{ a.pickedPctOfTotal }}%</td>
+              <td class="col-num rate-cell">{{ a.bookedPctOfPicked }}%</td>
+              <td class="col-num rate-cell">{{ a.bookedPctOfTotal }}%</td>
+              <td class="col-num">{{ formatDurationLong(a.totalDurationSec) }}</td>
+              <td class="col-num">{{ formatDuration(a.avgDurationPerPickedCallSec) }}</td>
+            </tr>
+            <tr class="totals-row">
+              <td>{{ callsData.team.agent }}</td>
+              <td class="col-num">{{ callsData.team.total }}</td>
+              <td class="col-num">{{ callsData.team.rnr }}</td>
+              <td class="col-num">{{ callsData.team.picked }}</td>
+              <td class="col-num">{{ callsData.team.booked }}</td>
+              <td class="col-num">{{ callsData.team.notQualified }}</td>
+              <td class="col-num rate-cell">{{ callsData.team.pickedPctOfTotal }}%</td>
+              <td class="col-num rate-cell">{{ callsData.team.bookedPctOfPicked }}%</td>
+              <td class="col-num rate-cell">{{ callsData.team.bookedPctOfTotal }}%</td>
+              <td class="col-num">{{ formatDurationLong(callsData.team.totalDurationSec) }}</td>
+              <td class="col-num">{{ formatDuration(callsData.team.avgDurationPerPickedCallSec) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="callsData.byAgent.length === 0" class="no-data">No calls with a disposition in this range/filters.</div>
+
+      <div class="metric-subsection-label">What the Picked Calls Turned Into</div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Outcome</th>
+              <th class="col-num" *ngFor="let name of callsOutcomeAgentNames">{{ name }}</th>
+              <th class="col-num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of callsData.outcomeMatrix">
+              <td>{{ row.outcome }}</td>
+              <td class="col-num" *ngFor="let name of callsOutcomeAgentNames">{{ row.byAgent[name] || 0 }}</td>
+              <td class="col-num rate-cell">{{ outcomeRowTotal(row) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="callsData.outcomeMatrix.length === 0" class="no-data">No picked calls in this range/filters.</div>
+    </section>
+
+    <!-- Raw activity log — for the Founder to see exactly what the team is doing, not just the
+         rolled-up numbers above. Click a row to see that lead's FULL follow-up history. -->
+    <section class="segment-card">
+      <h2 class="section-title">
+        Call Records
+        <span class="section-note">ℹ️ Every individual call in this range/filters, newest first. Click a row to see that lead's complete follow-up history (not limited to this date range).</span>
+      </h2>
+
+      <div *ngIf="callRecordsLoading" class="loading-inline">Loading call records...</div>
+      <div *ngIf="callRecordsError" class="error">{{ callRecordsError }}</div>
+
+      <ng-container *ngIf="!callRecordsLoading && !callRecordsError && callRecords">
+        <div class="table-scroll">
+          <table class="data-table clickable-rows">
+            <thead>
+              <tr>
+                <th>Date &amp; Time</th>
+                <th>Agent</th>
+                <th>Name</th>
+                <th>Number</th>
+                <th>Status</th>
+                <th>Sub-Status</th>
+                <th class="col-num">Duration</th>
+                <th>Recording</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of callRecords.rows" [class.linked]="r.leadId" (click)="openHistory(r.leadId, r.leadName)">
+                <td>{{ r.dateTime | date: 'd MMM, h:mm a' }}</td>
+                <td>{{ r.agent }}</td>
+                <td>{{ r.leadName || '—' }}</td>
+                <td>{{ r.number || '—' }}</td>
+                <td>{{ r.disposition || 'Not worked yet' }}</td>
+                <td>{{ r.subDisposition || '—' }}</td>
+                <td class="col-num">{{ formatDuration(r.durationSec) }}</td>
+                <td>
+                  <a *ngIf="r.recordingUrl" [href]="r.recordingUrl" target="_blank" (click)="$event.stopPropagation()" class="recording-link">▶ Listen</a>
+                  <span *ngIf="!r.recordingUrl">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="callRecords.rows.length === 0" class="no-data">No calls in this range/filters.</div>
+
+        <div class="pagination" *ngIf="callRecords.total > 0">
+          <span class="pagination-info">Page {{ callRecords.page }} of {{ callRecordsTotalPages }} ({{ callRecords.total }} calls)</span>
+          <div class="pagination-buttons">
+            <button type="button" (click)="goToCallRecordsPage(callRecords.page - 1)" [disabled]="callRecords.page <= 1">‹ Prev</button>
+            <button type="button" (click)="goToCallRecordsPage(callRecords.page + 1)" [disabled]="callRecords.page >= callRecordsTotalPages">Next ›</button>
+          </div>
+        </div>
+      </ng-container>
+    </section>
+  </ng-container>
+
+  <!-- ============ LEADS ============ -->
+  <ng-container *ngIf="!loading && !error && activeSubTab === 'leads' && leadsData">
+    <section class="segment-card">
+      <h2 class="section-title">
+        Lead Performance
+        <span class="section-note">ℹ️ Per distinct PERSON, not per call — repeat calls to the same lead count once. Total = distinct leads with ≥1 dispositioned call. Picked = reached at least once. RNR = every call to them was RNR. Not Qualified is a subset of Picked.</span>
+      </h2>
+
+      <div class="kpi-grid">
+        <div class="kpi-card accent-blue">
+          <span class="kpi-value">{{ leadsData.kpis.totalLeadsCalled }}</span>
+          <span class="kpi-label">Total Leads Called</span>
+        </div>
+        <div class="kpi-card accent-green" title="Distinct leads reached at least once">
+          <span class="kpi-value">{{ leadsData.kpis.picked.count }}</span>
+          <span class="kpi-sub">{{ leadsData.kpis.picked.pct }}% of total</span>
+          <span class="kpi-label">Call Picked</span>
+        </div>
+        <div class="kpi-card accent-red" title="Distinct leads never reached (every call was RNR)">
+          <span class="kpi-value">{{ leadsData.kpis.rnr.count }}</span>
+          <span class="kpi-sub">{{ leadsData.kpis.rnr.pct }}% of total</span>
+          <span class="kpi-label">RNR / DP</span>
+        </div>
+        <div class="kpi-card accent-indigo" title="Distinct leads with ≥1 Meeting Booked call">
+          <span class="kpi-value">{{ leadsData.kpis.booked.count }}</span>
+          <span class="kpi-sub">{{ leadsData.kpis.booked.pct }}% of total</span>
+          <span class="kpi-label">Booked</span>
+        </div>
+        <div class="kpi-card accent-orange" title="Distinct leads with ≥1 Not Qualified call">
+          <span class="kpi-value">{{ leadsData.kpis.notQualified.count }}</span>
+          <span class="kpi-sub">{{ leadsData.kpis.notQualified.pct }}% of total</span>
+          <span class="kpi-label">Not Qualified</span>
+        </div>
+        <div class="kpi-card accent-purple" title="Total Leads Called ÷ calendar days spanned by the selected range">
+          <span class="kpi-value">{{ leadsData.kpis.avgLeadsPerDay ?? '—' }}</span>
+          <span class="kpi-label">Avg Leads / Day</span>
+        </div>
+        <div class="kpi-card accent-purple" title="The single busiest day's count of distinct PICKED leads">
+          <span class="kpi-value">{{ leadsData.kpis.maxLeadsReachedInADay ?? '—' }}</span>
+          <span class="kpi-label">Max Leads Reached in a Day</span>
+        </div>
+      </div>
+
+      <div class="metric-subsection-label">Agent Breakdown</div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th class="col-num">Total Leads Called</th>
+              <th class="col-num">RNR</th>
+              <th class="col-num">Picked</th>
+              <th class="col-num">Booked</th>
+              <th class="col-num">Not Qualified</th>
+              <th class="col-num">Picked % (of total)</th>
+              <th class="col-num">Booked % (of picked)</th>
+              <th class="col-num">Booked % (of total)</th>
+              <th class="col-num">Not Qualified % (of total)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of leadsData.byAgent">
+              <td>{{ a.agent }}</td>
+              <td class="col-num">{{ a.total }}</td>
+              <td class="col-num">{{ a.rnr }}</td>
+              <td class="col-num">{{ a.picked }}</td>
+              <td class="col-num">{{ a.booked }}</td>
+              <td class="col-num">{{ a.notQualified }}</td>
+              <td class="col-num rate-cell">{{ a.pickedPctOfTotal }}%</td>
+              <td class="col-num rate-cell">{{ a.bookedPctOfPicked }}%</td>
+              <td class="col-num rate-cell">{{ a.bookedPctOfTotal }}%</td>
+              <td class="col-num rate-cell">{{ a.notQualifiedPctOfTotal }}%</td>
+            </tr>
+            <tr class="totals-row">
+              <td>{{ leadsData.team.agent }}</td>
+              <td class="col-num">{{ leadsData.team.total }}</td>
+              <td class="col-num">{{ leadsData.team.rnr }}</td>
+              <td class="col-num">{{ leadsData.team.picked }}</td>
+              <td class="col-num">{{ leadsData.team.booked }}</td>
+              <td class="col-num">{{ leadsData.team.notQualified }}</td>
+              <td class="col-num rate-cell">{{ leadsData.team.pickedPctOfTotal }}%</td>
+              <td class="col-num rate-cell">{{ leadsData.team.bookedPctOfPicked }}%</td>
+              <td class="col-num rate-cell">{{ leadsData.team.bookedPctOfTotal }}%</td>
+              <td class="col-num rate-cell">{{ leadsData.team.notQualifiedPctOfTotal }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="leadsData.byAgent.length === 0" class="no-data">No leads called in this range/filters.</div>
+
+      <div class="metric-subsection-label">What the Picked Leads Turned Into</div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Outcome</th>
+              <th class="col-num" *ngFor="let name of leadsOutcomeAgentNames">{{ name }}</th>
+              <th class="col-num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of leadsData.outcomeMatrix">
+              <td>{{ row.outcome }}</td>
+              <td class="col-num" *ngFor="let name of leadsOutcomeAgentNames">{{ row.byAgent[name] || 0 }}</td>
+              <td class="col-num rate-cell">{{ outcomeRowTotal(row) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="leadsData.outcomeMatrix.length === 0" class="no-data">No picked leads in this range/filters.</div>
+    </section>
+
+    <!-- One row per person — current status straight from their Lead record (so it's never stale,
+         even if their latest call was outside this date range). Click a row for their full history. -->
+    <section class="segment-card">
+      <h2 class="section-title">
+        Lead Records
+        <span class="section-note">ℹ️ One row per distinct person called in this range/filters. Status, Sub-Status and Next Follow-up reflect their CURRENT state in Zoho (their latest call overall, not just this range). Click a row to see their complete follow-up history.</span>
+      </h2>
+
+      <div *ngIf="leadRecordsLoading" class="loading-inline">Loading lead records...</div>
+      <div *ngIf="leadRecordsError" class="error">{{ leadRecordsError }}</div>
+
+      <ng-container *ngIf="!leadRecordsLoading && !leadRecordsError && leadRecords">
+        <div class="table-scroll">
+          <table class="data-table clickable-rows">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Number</th>
+                <th>Agent</th>
+                <th>Status</th>
+                <th>Sub-Status</th>
+                <th>Next Follow-up</th>
+                <th class="col-num">Calls (this range)</th>
+                <th>Last Call</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of leadRecords.rows" class="linked" (click)="openHistory(r.leadId, r.name)">
+                <td>{{ r.name || '—' }}</td>
+                <td>{{ r.number || '—' }}</td>
+                <td>{{ r.agent }}</td>
+                <td>{{ r.disposition || '—' }}</td>
+                <td>{{ r.subDisposition || '—' }}</td>
+                <td>{{ r.followUpDateTime ? (r.followUpDateTime | date: 'd MMM, h:mm a') : '—' }}</td>
+                <td class="col-num">{{ r.callsInPeriod }}</td>
+                <td>{{ r.lastCallDateTime | date: 'd MMM, h:mm a' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="leadRecords.rows.length === 0" class="no-data">No leads called in this range/filters.</div>
+
+        <div class="pagination" *ngIf="leadRecords.total > 0">
+          <span class="pagination-info">Page {{ leadRecords.page }} of {{ leadRecordsTotalPages }} ({{ leadRecords.total }} leads)</span>
+          <div class="pagination-buttons">
+            <button type="button" (click)="goToLeadRecordsPage(leadRecords.page - 1)" [disabled]="leadRecords.page <= 1">‹ Prev</button>
+            <button type="button" (click)="goToLeadRecordsPage(leadRecords.page + 1)" [disabled]="leadRecords.page >= leadRecordsTotalPages">Next ›</button>
+          </div>
+        </div>
+      </ng-container>
+    </section>
+  </ng-container>
+
+  <!-- Follow-up history popup — shared by both Call Records and Lead Records, always that lead's
+       FULL history (every call ever logged against them), regardless of the page's date filter. -->
+  <div class="modal-overlay" *ngIf="showHistoryModal" (click)="closeHistory()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📋 Follow-up History — {{ historyLeadName || 'Lead' }}</h2>
+        <button class="btn-close" (click)="closeHistory()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="historyLoading" class="loading-inline">Loading...</div>
+        <div *ngIf="historyError" class="error">{{ historyError }}</div>
+
+        <ng-container *ngIf="!historyLoading && !historyError">
+          <table class="data-table" *ngIf="historyEntries.length > 0">
+            <thead>
+              <tr>
+                <th>Date &amp; Time</th>
+                <th>Agent</th>
+                <th>Status</th>
+                <th>Sub-Status</th>
+                <th class="col-num">Duration</th>
+                <th>Recording</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let h of historyEntries">
+                <td>{{ h.dateTime | date: 'd MMM y, h:mm a' }}</td>
+                <td>{{ h.agent }}</td>
+                <td>{{ h.disposition || 'Not worked yet' }}</td>
+                <td>{{ h.subDisposition || '—' }}</td>
+                <td class="col-num">{{ formatDuration(h.durationSec) }}</td>
+                <td>
+                  <a *ngIf="h.recordingUrl" [href]="h.recordingUrl" target="_blank" class="recording-link">▶ Listen</a>
+                  <span *ngIf="!h.recordingUrl">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="historyEntries.length === 0" class="no-data">No calls recorded for this lead.</div>
+          <p class="summary-foot" *ngIf="historyEntries.length > 0">{{ historyEntries.length }} call{{ historyEntries.length > 1 ? 's' : '' }} total — this is their ENTIRE history, not limited to the page's date filter.</p>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</div>

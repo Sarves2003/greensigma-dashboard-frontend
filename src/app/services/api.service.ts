@@ -115,6 +115,31 @@ export class ApiService {
   }
 
   // Emandate Tracker
+  // Sales Calls (Zoho CRM) — shared filter shape across both sub-tabs.
+  getSalesCallFilters(): Observable<APIResponse<{ agents: string[]; leadSources: string[] }>> {
+    return this.http.get<APIResponse<{ agents: string[]; leadSources: string[] }>>(`${this.baseUrl}/sales-calls/filters`);
+  }
+
+  getSalesCallsOverview(params: { period?: string; startDate?: string; endDate?: string; agents?: string; leadSource?: string }): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/sales-calls/calls-overview`, { params: this.buildParams(params) });
+  }
+
+  getSalesLeadsOverview(params: { period?: string; startDate?: string; endDate?: string; agents?: string; leadSource?: string }): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/sales-calls/leads-overview`, { params: this.buildParams(params) });
+  }
+
+  getSalesCallRecords(params: { period?: string; startDate?: string; endDate?: string; agents?: string; leadSource?: string; page?: number }): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/sales-calls/call-records`, { params: this.buildParams(params) });
+  }
+
+  getSalesLeadRecords(params: { period?: string; startDate?: string; endDate?: string; agents?: string; leadSource?: string; page?: number }): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/sales-calls/lead-records`, { params: this.buildParams(params) });
+  }
+
+  getSalesLeadHistory(leadId: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/sales-calls/lead-history`, { params: this.buildParams({ leadId }) });
+  }
+
   getEmandateTable(date: string): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/table`, { params: this.buildParams({ date }) });
   }

@@ -17,6 +17,7 @@ import { FunnelAnalysisComponent } from './components/funnel-analysis/funnel-ana
 import { UsageAnalysisComponent } from './components/usage-analysis/usage-analysis.component';
 import { ActivationTrackerComponent } from './components/activation-tracker/activation-tracker.component';
 import { EmandateTrackerComponent } from './components/emandate-tracker/emandate-tracker.component';
+import { SalesCallsComponent } from './components/sales-calls/sales-calls.component';
 import { AdminManagementComponent } from './components/admin-management/admin-management.component';
 import { NoAccessComponent } from './components/no-access/no-access.component';
 import { authGuard, ownerGuard, permissionGuard } from './guards/auth.guard';
@@ -42,6 +43,7 @@ export const routes: Routes = [
   { path: 'usage-analysis', component: UsageAnalysisComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.usageAnalysis)] },
   { path: 'activation-tracker', component: ActivationTrackerComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.activationTracker)] },
   { path: 'emandate-tracker', component: EmandateTrackerComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.emandateTracker)] },
+  { path: 'sales-calls', component: SalesCallsComponent, canActivate: [authGuard, permissionGuard(PERMISSIONS.salesCalls)] },
   { path: 'admin', component: AdminManagementComponent, canActivate: [authGuard, ownerGuard] },
   { path: 'no-access', component: NoAccessComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: '/product-metrics' },

@@ -330,6 +330,56 @@
     </ng-container>
   </section>
 
+  <!-- Previous Webinar Conversion %: same idea as above, but per bar it compares against whichever
+       webinar came immediately before it in the master Webinar Dates list — that "previous" date is
+       worked out dynamically per bar, so it moves with you as you change the selection. -->
+  <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
+    <h2 class="section-title">
+      Previous Webinar Conversion %
+      <span class="section-note">ℹ️ For each selected date: of everyone who paid (Webinar Lead group), the % who registered for the webinar immediately BEFORE it in your Manage Dates list — not a fixed date, it shifts per bar (e.g. for 19Sep2026 that's 12Sep2026; for 12Sep2026 it's whichever webinar came before that). Hover a bar to see exactly which date it's compared against.</span>
+    </h2>
+
+    <div class="mini-controls">
+      <span class="filter-label">Webinars:</span>
+      <div class="button-group">
+        <button type="button" (click)="selectLatestPrevDates(6)">Latest 6</button>
+        <button type="button" (click)="selectLatestPrevDates(12)">Latest 12</button>
+        <button type="button" (click)="selectAllPrevDates()">All ({{ webinarDates.length }})</button>
+        <button type="button" (click)="clearPrevDates()">Clear</button>
+      </div>
+    </div>
+
+    <div class="custom-date-picker" *ngIf="!loadingDates">
+      <span class="date-chip custom-date-chip"
+        *ngFor="let d of webinarDates"
+        [class.selected]="isPrevDateSelected(d.date.slice(0,10))"
+        (click)="togglePrevDate(d.date.slice(0,10))">
+        {{ d.label }}
+      </span>
+    </div>
+
+    <div *ngIf="prevSelectedDates.length === 0" class="no-data">Select one or more webinar dates above to compare.</div>
+    <div *ngIf="prevLoading" class="loading-inline">Loading...</div>
+    <div *ngIf="prevError" class="error">{{ prevError }}</div>
+
+    <ng-container *ngIf="!prevLoading && !prevError && prevBars.length > 0">
+      <app-echart-conversion-bar
+        [categories]="prevCategories"
+        [values]="prevPercentages"
+        [counts]="prevCounts"
+        [totals]="prevTotals"
+        [names]="prevContext"
+        [average]="prevAverage"
+        [noDataLabel]="'No paid users, or no earlier webinar to compare against'"
+        seriesName="Previous Webinar %"
+        color="#0369a1">
+      </app-echart-conversion-bar>
+      <p class="section-subtitle" *ngIf="prevAverage !== null">
+        Average across the {{ prevBars.length }} selected webinar(s): <strong>{{ prevAverage }}%</strong>
+      </p>
+    </ng-container>
+  </section>
+
   <!-- People-in-source popup — deliberately a sibling of every .segment-card, not nested inside
        one. .segment-card has a hover `transform`, which creates a new containing block for any
        `position: fixed` descendant, so the overlay would render pinned to that card's box instead
