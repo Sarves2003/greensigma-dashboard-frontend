@@ -41,4 +41,8 @@ export const PERMISSIONS = {
 
   salesCalls: 'tab:sales-calls',
   salesCallsMain: 'card:sales-calls:main',
+
+  webinarAnalysis: 'tab:webinar-analysis',
+  webinarAnalysisMain: 'card:webinar-analysis:main',
+  webinarAnalysisUpload: 'card:webinar-analysis:upload',
 } as const;

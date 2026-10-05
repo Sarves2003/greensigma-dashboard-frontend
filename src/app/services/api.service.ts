@@ -140,6 +140,60 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/sales-calls/lead-history`, { params: this.buildParams({ leadId }) });
   }
 
+  // Webinar Analysis
+  uploadWebinarAnalysis(participantsFile: File, chatFile: File): Observable<APIResponse<any>> {
+    const formData = new FormData();
+    formData.append('participantsFile', participantsFile);
+    formData.append('chatFile', chatFile);
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/upload`, formData);
+  }
+
+  listWebinarAnalysis(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/webinar-analysis/list`);
+  }
+
+  getWebinarReport(id: string, attendedThresholdMin: number): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/report/${id}`, { params: this.buildParams({ attendedThresholdMin }) });
+  }
+
+  getWebinarMainTable(id: string, attendedThresholdMin: number, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/main/${id}`, { params: this.buildParams({ attendedThresholdMin, page, pageSize, sortBy, sortDir }) });
+  }
+
+  getWebinarNotJoinedTable(id: string, attendedThresholdMin: number, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/not-joined/${id}`, { params: this.buildParams({ attendedThresholdMin, page, pageSize, sortBy, sortDir }) });
+  }
+
+  getWebinarNotRegisteredTable(id: string, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/not-registered/${id}`, { params: this.buildParams({ page, pageSize, sortBy, sortDir }) });
+  }
+
+  // Auth is attached by the interceptor to HttpClient requests only, not plain <a href> navigation —
+  // fetched as a blob here so the token still goes along, then saved client-side by the component.
+  downloadWebinarMainCsv(id: string, attendedThresholdMin: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/main/${id}/download`, { params: this.buildParams({ attendedThresholdMin, sortBy, sortDir }), responseType: 'blob' });
+  }
+
+  downloadWebinarNotJoinedCsv(id: string, attendedThresholdMin: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/not-joined/${id}/download`, { params: this.buildParams({ attendedThresholdMin, sortBy, sortDir }), responseType: 'blob' });
+  }
+
+  downloadWebinarNotRegisteredCsv(id: string, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/not-registered/${id}/download`, { params: this.buildParams({ sortBy, sortDir }), responseType: 'blob' });
+  }
+
+  getWebinarAttendeeDetail(id: string, email: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/attendee/${id}/${encodeURIComponent(email)}`);
+  }
+
+  getWebinarKeywordMatches(id: string, keyword: string, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/keyword/${id}`, { params: this.buildParams({ keyword, page, pageSize, sortBy, sortDir }) });
+  }
+
+  downloadWebinarKeywordCsv(id: string, keyword: string, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/keyword/${id}/download`, { params: this.buildParams({ keyword, sortBy, sortDir }), responseType: 'blob' });
+  }
+
   getEmandateTable(date: string): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/table`, { params: this.buildParams({ date }) });
   }

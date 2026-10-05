@@ -1,0 +1,434 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Webinar Analysis</h1>
+    <p class="subtitle">Zoom attendance &amp; chat, scored into hot/warm leads and cross-checked against existing paid users</p>
+  </div>
+
+  <div *ngIf="listLoading" class="loading-inline">Loading uploaded webinars...</div>
+  <div *ngIf="listError" class="error">{{ listError }}</div>
+
+  <ng-container *ngIf="!listLoading && !listError">
+    <!-- ============ Filter bar: webinar picker + attended threshold + upload ============ -->
+    <section class="segment-card filter-card" *ngIf="authService.hasPermission(permissions.webinarAnalysisMain)">
+      <div class="filter-row">
+        <div class="filter-group">
+          <span class="filter-label">Webinar</span>
+          <select [ngModel]="selectedWebinarId" (ngModelChange)="onWebinarChange($event)" [disabled]="webinars.length === 0">
+            <option *ngFor="let w of webinars" [value]="w.id">{{ w.title }} ({{ w.batchLabel }}) — {{ w.attendeeCount }} registered</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-label">Attended Threshold (min)</span>
+          <input type="number" min="0" step="1" [(ngModel)]="attendedThresholdMin" (change)="onThresholdChange()" class="threshold-input">
+        </div>
+
+        <button
+          type="button"
+          class="upload-btn"
+          *ngIf="authService.hasPermission(permissions.webinarAnalysisUpload)"
+          (click)="toggleUploadPanel()"
+        >
+          {{ showUploadPanel ? 'Hide' : '⬆ Upload' }} Webinar Data
+        </button>
+      </div>
+
+      <div class="upload-panel" *ngIf="showUploadPanel && authService.hasPermission(permissions.webinarAnalysisUpload)">
+        <p class="section-subtitle">Upload the Zoom participants CSV and the chat .txt export for one webinar. Title, date and duration are read automatically from the CSV's own metadata.</p>
+        <div class="upload-fields">
+          <label class="upload-field">
+            <span>Participants CSV</span>
+            <input type="file" accept=".csv" (change)="onParticipantsFileSelected($event)">
+          </label>
+          <label class="upload-field">
+            <span>Chat .txt</span>
+            <input type="file" accept=".txt" (change)="onChatFileSelected($event)">
+          </label>
+          <button type="button" class="btn-apply" [disabled]="!participantsFile || !chatFile || uploading" (click)="submitUpload()">
+            {{ uploading ? 'Uploading...' : 'Upload & Save' }}
+          </button>
+        </div>
+        <div *ngIf="uploadError" class="error">{{ uploadError }}</div>
+      </div>
+
+      <span class="section-note" *ngIf="webinars.length === 0">No webinars uploaded yet — use Upload Webinar Data to add the first one.</span>
+    </section>
+
+    <ng-container *ngIf="selectedWebinarId">
+      <!-- ============ Summary cards ============ -->
+      <section class="segment-card" *ngIf="authService.hasPermission(permissions.webinarAnalysisMain)">
+        <h2 class="section-title">
+          {{ report?.webinar?.title || 'Webinar Report' }}
+          <span class="section-note" *ngIf="report">{{ report.webinar.batchLabel }} • {{ formatMin(report.webinar.totalDurationMin) }} session</span>
+        </h2>
+
+        <div *ngIf="reportLoading" class="loading-inline">Loading report...</div>
+        <div *ngIf="reportError" class="error">{{ reportError }}</div>
+
+        <div class="kpi-grid" *ngIf="!reportLoading && !reportError && report">
+          <div class="kpi-card accent-blue" title="Distinct emails in the uploaded Zoom participants file">
+            <span class="kpi-value">{{ report.cards.totalRegistered }}</span>
+            <span class="kpi-label">Total Unique Zoom Registered</span>
+          </div>
+          <div class="kpi-card accent-teal" title="Of the Zoom registrants, how many also appear in the marketing registration/funnel sheet for this same webinar date">
+            <span class="kpi-value">{{ report.cards.registeredViaFunnel.count }}</span>
+            <span class="kpi-sub">{{ report.cards.registeredViaFunnel.pct }}% of total</span>
+            <span class="kpi-label">From Current Webinar</span>
+          </div>
+          <div class="kpi-card accent-teal" title="Of the Zoom registrants, how many registered via the marketing funnel for an EARLIER webinar (not this one), excluding anyone already counted as a previously-paid user">
+            <span class="kpi-value">{{ report.cards.fromPreviousWebinar.count }}</span>
+            <span class="kpi-sub">{{ report.cards.fromPreviousWebinar.pct }}% of total</span>
+            <span class="kpi-label">From Previous Webinar</span>
+          </div>
+          <div class="kpi-card accent-indigo" title="Of the Zoom registrants, how many are already a paying customer from BEFORE this webinar (same-day sheet entries from this webinar's own conversions don't count here)">
+            <span class="kpi-value">{{ report.cards.previouslyPaid.count }}</span>
+            <span class="kpi-sub">{{ report.cards.previouslyPaid.pct }}% of total</span>
+            <span class="kpi-label">Previously Paid Users</span>
+          </div>
+          <div class="kpi-card accent-orange" title="Total minus From Current Webinar, From Previous Webinar and Previously Paid Users — registrants with no tracked funnel source (word-of-mouth, direct link, untracked ads, etc.)">
+            <span class="kpi-value">{{ report.cards.organic.count }}</span>
+            <span class="kpi-sub">{{ report.cards.organic.pct }}% of total</span>
+            <span class="kpi-label">Organic</span>
+          </div>
+          <div class="kpi-card accent-green" [title]="'Attended at least ' + attendedThresholdMin + ' minutes'">
+            <span class="kpi-value">{{ report.cards.attended.count }}</span>
+            <span class="kpi-sub">{{ report.cards.attended.pct }}% of total</span>
+            <span class="kpi-label">Attended (≥ {{ attendedThresholdMin }}m)</span>
+          </div>
+          <div class="kpi-card accent-purple" title="Total chat messages sent by anyone, regardless of how long they attended">
+            <span class="kpi-value">{{ report.cards.totalChats }}</span>
+            <span class="kpi-label">Total Chats</span>
+          </div>
+          <div class="kpi-card accent-purple" [title]="'Average total time among the ' + report.cards.attended.count + ' people who attended at least ' + attendedThresholdMin + ' minutes'">
+            <span class="kpi-value">{{ formatMin(report.cards.avgAttendedDurationMin) }}</span>
+            <span class="kpi-label">Avg Time (Attended)</span>
+          </div>
+          <div class="kpi-card accent-teal" title="Average number of times an attended person left and rejoined">
+            <span class="kpi-value">{{ report.cards.avgRejoinsAttended ?? '—' }}</span>
+            <span class="kpi-label">Avg Rejoins (Attended)</span>
+          </div>
+          <div class="kpi-card accent-blue" title="The single moment the most people were in the room at once">
+            <span class="kpi-value">{{ report.cards.peakConcurrent.count }}</span>
+            <span class="kpi-sub" *ngIf="report.cards.peakConcurrent.atTime">at {{ report.cards.peakConcurrent.atTime | date: 'h:mm a' }}</span>
+            <span class="kpi-label">Peak Concurrent</span>
+          </div>
+          <div class="kpi-card accent-orange" title="Of attendees, how many stayed at least until the session's halfway point">
+            <span class="kpi-value">{{ report.cards.stayedTillMiddle.count }}</span>
+            <span class="kpi-sub">{{ report.cards.stayedTillMiddle.pct }}% of attended</span>
+            <span class="kpi-label">Stayed Till Middle</span>
+          </div>
+          <div class="kpi-card accent-red" title="Of attendees, how many stayed at least until the 2-hour mark (typically when the pitch happens)">
+            <span class="kpi-value">{{ report.cards.stayedTillEnd2hr === null ? 'N/A' : report.cards.stayedTillEnd2hr.count }}</span>
+            <span class="kpi-sub" *ngIf="report.cards.stayedTillEnd2hr">{{ report.cards.stayedTillEnd2hr.pct }}% of attended</span>
+            <span class="kpi-label">Stayed Till 2hr Mark</span>
+          </div>
+        </div>
+
+        <span class="section-note" *ngIf="!reportLoading && report && !report.registrationDataAvailable">
+          ℹ️ No funnel-registration data exists for this webinar's date — email-based pre-registration tracking only started from the 3 Oct 2026 batch onward. "From Funnel Registration" and the "Not Registered" tab will show 0 for older webinars.
+        </span>
+      </section>
+
+      <!-- ============ Sub-tab switcher ============ -->
+      <div class="subtab-switcher" *ngIf="authService.hasPermission(permissions.webinarAnalysisMain)">
+        <button type="button" class="subtab-btn" [class.active]="activeSubTab === 'main'" (click)="setSubTab('main')">
+          Main
+        </button>
+        <button type="button" class="subtab-btn" [class.active]="activeSubTab === 'notJoined'" (click)="setSubTab('notJoined')">
+          Zoom Registered but Not Joined
+        </button>
+        <button type="button" class="subtab-btn" [class.active]="activeSubTab === 'notRegistered'" (click)="setSubTab('notRegistered')">
+          Not Registered
+        </button>
+        <button type="button" class="subtab-btn" [class.active]="activeSubTab === 'keyword'" (click)="setSubTab('keyword')">
+          Keyword
+        </button>
+      </div>
+
+      <!-- ============ Main table ============ -->
+      <section class="segment-card" *ngIf="activeSubTab === 'main' && authService.hasPermission(permissions.webinarAnalysisMain)">
+        <h2 class="section-title">
+          Main
+          <span class="section-note">ℹ️ Everyone who attended at least {{ attendedThresholdMin }} minutes. Click a row for their full session + chat history. "Paid (5k)" includes both previously-paid customers and anyone who confirmed payment in this session's chat (self-reported — not yet reflected in the system).</span>
+          <button type="button" class="download-btn" (click)="downloadMain()" *ngIf="mainTable && mainTable.rows.length > 0">⬇ Download CSV</button>
+        </h2>
+
+        <div *ngIf="mainLoading" class="loading-inline">Loading...</div>
+        <div *ngIf="mainError" class="error">{{ mainError }}</div>
+
+        <ng-container *ngIf="!mainLoading && !mainError && mainTable">
+          <div class="table-scroll">
+            <table class="data-table clickable-rows">
+              <thead>
+                <tr>
+                  <th class="sortable" (click)="toggleMainSort('name')">Name{{ mainSortBy === 'name' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleMainSort('number')">Number{{ mainSortBy === 'number' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleMainSort('batchLabel')">Batch{{ mainSortBy === 'batchLabel' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleMainSort('paid5k')">Paid (5k){{ mainSortBy === 'paid5k' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="col-num sortable" (click)="toggleMainSort('totalMin')">Total Time{{ mainSortBy === 'totalMin' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="col-num sortable" (click)="toggleMainSort('rejoins')">Rejoins{{ mainSortBy === 'rejoins' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="col-num sortable" (click)="toggleMainSort('chatCount')">Chats{{ mainSortBy === 'chatCount' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleMainSort('signedUp')">Signed Up{{ mainSortBy === 'signedUp' ? (mainSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of mainTable.rows" class="linked" (click)="openAttendeeDetail(r.email)">
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.number }}</td>
+                  <td>{{ r.batchLabel }}</td>
+                  <td><span class="badge" [class.badge-yes]="r.paid5k" [class.badge-no]="!r.paid5k">{{ r.paid5k ? 'Yes' : 'No' }}</span></td>
+                  <td class="col-num">{{ formatMin(r.totalMin) }}</td>
+                  <td class="col-num">{{ r.rejoins }}</td>
+                  <td class="col-num">{{ r.chatCount }}</td>
+                  <td><span class="badge" [class.badge-yes]="r.signedUp" [class.badge-no]="!r.signedUp">{{ r.signedUp ? 'Yes' : 'No' }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div *ngIf="mainTable.rows.length === 0" class="no-data">No attendees for this webinar.</div>
+
+          <div class="pagination" *ngIf="mainTable.total > 0">
+            <span class="pagination-info">Page {{ mainTable.page }} of {{ mainTotalPages }} ({{ mainTable.total }} people)</span>
+            <div class="pagination-controls">
+              <select [ngModel]="mainPageSize" (ngModelChange)="onMainPageSizeChange($event)">
+                <option [ngValue]="20">20 / page</option>
+                <option [ngValue]="50">50 / page</option>
+                <option [ngValue]="100">100 / page</option>
+                <option [ngValue]="200">200 / page</option>
+              </select>
+              <div class="pagination-buttons">
+                <button type="button" (click)="goToMainPage(mainTable.page - 1)" [disabled]="mainTable.page <= 1">‹ Prev</button>
+                <button type="button" (click)="goToMainPage(mainTable.page + 1)" [disabled]="mainTable.page >= mainTotalPages">Next ›</button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </section>
+
+      <!-- ============ Not Joined table ============ -->
+      <section class="segment-card" *ngIf="activeSubTab === 'notJoined' && authService.hasPermission(permissions.webinarAnalysisMain)">
+        <h2 class="section-title">
+          Zoom Registered but Not Joined
+          <span class="section-note">ℹ️ Attended less than the {{ attendedThresholdMin }}-minute threshold selected above (includes true 0-minute no-shows).</span>
+          <button type="button" class="download-btn" (click)="downloadNotJoined()" *ngIf="notJoinedTable && notJoinedTable.rows.length > 0">⬇ Download CSV</button>
+        </h2>
+
+        <div *ngIf="notJoinedLoading" class="loading-inline">Loading...</div>
+        <div *ngIf="notJoinedError" class="error">{{ notJoinedError }}</div>
+
+        <ng-container *ngIf="!notJoinedLoading && !notJoinedError && notJoinedTable">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="sortable" (click)="toggleNotJoinedSort('name')">Name{{ notJoinedSortBy === 'name' ? (notJoinedSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleNotJoinedSort('number')">Number{{ notJoinedSortBy === 'number' ? (notJoinedSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleNotJoinedSort('batchLabel')">Batch{{ notJoinedSortBy === 'batchLabel' ? (notJoinedSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleNotJoinedSort('paid5k')">Paid (5k){{ notJoinedSortBy === 'paid5k' ? (notJoinedSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleNotJoinedSort('signedUp')">Signed Up{{ notJoinedSortBy === 'signedUp' ? (notJoinedSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of notJoinedTable.rows">
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.number }}</td>
+                  <td>{{ r.batchLabel }}</td>
+                  <td><span class="badge" [class.badge-yes]="r.paid5k" [class.badge-no]="!r.paid5k">{{ r.paid5k ? 'Yes' : 'No' }}</span></td>
+                  <td><span class="badge" [class.badge-yes]="r.signedUp" [class.badge-no]="!r.signedUp">{{ r.signedUp ? 'Yes' : 'No' }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div *ngIf="notJoinedTable.rows.length === 0" class="no-data">Everyone who registered for Zoom joined for at least some time.</div>
+
+          <div class="pagination" *ngIf="notJoinedTable.total > 0">
+            <span class="pagination-info">Page {{ notJoinedTable.page }} of {{ notJoinedTotalPages }} ({{ notJoinedTable.total }} people)</span>
+            <div class="pagination-controls">
+              <select [ngModel]="notJoinedPageSize" (ngModelChange)="onNotJoinedPageSizeChange($event)">
+                <option [ngValue]="20">20 / page</option>
+                <option [ngValue]="50">50 / page</option>
+                <option [ngValue]="100">100 / page</option>
+                <option [ngValue]="200">200 / page</option>
+              </select>
+              <div class="pagination-buttons">
+                <button type="button" (click)="goToNotJoinedPage(notJoinedTable.page - 1)" [disabled]="notJoinedTable.page <= 1">‹ Prev</button>
+                <button type="button" (click)="goToNotJoinedPage(notJoinedTable.page + 1)" [disabled]="notJoinedTable.page >= notJoinedTotalPages">Next ›</button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </section>
+
+      <!-- ============ Not Registered table ============ -->
+      <section class="segment-card" *ngIf="activeSubTab === 'notRegistered' && authService.hasPermission(permissions.webinarAnalysisMain)">
+        <h2 class="section-title">
+          Not Registered
+          <span class="section-note">ℹ️ Registered via the marketing funnel for this webinar's date but never registered on Zoom with that email.</span>
+          <button type="button" class="download-btn" (click)="downloadNotRegistered()" *ngIf="notRegisteredTable && notRegisteredTable.rows.length > 0">⬇ Download CSV</button>
+        </h2>
+
+        <div *ngIf="notRegisteredLoading" class="loading-inline">Loading...</div>
+        <div *ngIf="notRegisteredError" class="error">{{ notRegisteredError }}</div>
+
+        <ng-container *ngIf="!notRegisteredLoading && !notRegisteredError && notRegisteredTable">
+          <span class="section-note" *ngIf="!notRegisteredTable.registrationDataAvailable">
+            No funnel-registration data exists for this webinar's date (pre-dates 3 Oct 2026 email registration tracking).
+          </span>
+
+          <div class="table-scroll" *ngIf="notRegisteredTable.registrationDataAvailable">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="sortable" (click)="toggleNotRegisteredSort('name')">Name{{ notRegisteredSortBy === 'name' ? (notRegisteredSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleNotRegisteredSort('number')">Number{{ notRegisteredSortBy === 'number' ? (notRegisteredSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleNotRegisteredSort('signedUp')">Signed Up{{ notRegisteredSortBy === 'signedUp' ? (notRegisteredSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleNotRegisteredSort('signedUpBeforeSession')">Signed Up Before Session{{ notRegisteredSortBy === 'signedUpBeforeSession' ? (notRegisteredSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of notRegisteredTable.rows">
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.number }}</td>
+                  <td><span class="badge" [class.badge-yes]="r.signedUp" [class.badge-no]="!r.signedUp">{{ r.signedUp ? 'Yes' : 'No' }}</span></td>
+                  <td><span class="badge" [class.badge-yes]="r.signedUpBeforeSession" [class.badge-no]="!r.signedUpBeforeSession">{{ r.signedUpBeforeSession ? 'Yes' : 'No' }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div *ngIf="notRegisteredTable.registrationDataAvailable && notRegisteredTable.rows.length === 0" class="no-data">Everyone who registered via the funnel also registered on Zoom.</div>
+
+          <div class="pagination" *ngIf="notRegisteredTable.total > 0">
+            <span class="pagination-info">Page {{ notRegisteredTable.page }} of {{ notRegisteredTotalPages }} ({{ notRegisteredTable.total }} people)</span>
+            <div class="pagination-controls">
+              <select [ngModel]="notRegisteredPageSize" (ngModelChange)="onNotRegisteredPageSizeChange($event)">
+                <option [ngValue]="20">20 / page</option>
+                <option [ngValue]="50">50 / page</option>
+                <option [ngValue]="100">100 / page</option>
+                <option [ngValue]="200">200 / page</option>
+              </select>
+              <div class="pagination-buttons">
+                <button type="button" (click)="goToNotRegisteredPage(notRegisteredTable.page - 1)" [disabled]="notRegisteredTable.page <= 1">‹ Prev</button>
+                <button type="button" (click)="goToNotRegisteredPage(notRegisteredTable.page + 1)" [disabled]="notRegisteredTable.page >= notRegisteredTotalPages">Next ›</button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </section>
+
+      <!-- ============ Keyword search ============ -->
+      <section class="segment-card" *ngIf="activeSubTab === 'keyword' && authService.hasPermission(permissions.webinarAnalysisMain)">
+        <h2 class="section-title">
+          Keyword
+          <span class="section-note">ℹ️ Case-insensitive search across every chat message. Shows one row per time the word was used (the same person can appear more than once).</span>
+          <button type="button" class="download-btn" (click)="downloadKeyword()" *ngIf="keywordTable && keywordTable.rows.length > 0">⬇ Download CSV</button>
+        </h2>
+
+        <input
+          type="text"
+          class="keyword-input"
+          placeholder="Type a keyword, e.g. interested"
+          [(ngModel)]="keywordInput"
+          (ngModelChange)="onKeywordInput()"
+        >
+
+        <div *ngIf="keywordLoading" class="loading-inline">Searching...</div>
+        <div *ngIf="keywordError" class="error">{{ keywordError }}</div>
+
+        <div *ngIf="!keywordInput.trim() && !keywordLoading" class="no-data">Type a keyword above to search the chat.</div>
+
+        <ng-container *ngIf="!keywordLoading && !keywordError && keywordInput.trim() && keywordTable">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="sortable" (click)="toggleKeywordSort('name')">Name{{ keywordSortBy === 'name' ? (keywordSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleKeywordSort('number')">Number{{ keywordSortBy === 'number' ? (keywordSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleKeywordSort('email')">Email{{ keywordSortBy === 'email' ? (keywordSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleKeywordSort('timeIso')">Time (IST){{ keywordSortBy === 'timeIso' ? (keywordSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of keywordTable.rows">
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.number }}</td>
+                  <td>{{ r.email }}</td>
+                  <td>{{ r.timeIso | date: 'd MMM y, h:mm:ss a':'Asia/Kolkata' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div *ngIf="keywordTable.rows.length === 0" class="no-data">Nobody used that word in the chat.</div>
+
+          <div class="pagination" *ngIf="keywordTable.total > 0">
+            <span class="pagination-info">Page {{ keywordTable.page }} of {{ keywordTotalPages }} ({{ keywordTable.total }} matches)</span>
+            <div class="pagination-controls">
+              <select [ngModel]="keywordPageSize" (ngModelChange)="onKeywordPageSizeChange($event)">
+                <option [ngValue]="20">20 / page</option>
+                <option [ngValue]="50">50 / page</option>
+                <option [ngValue]="100">100 / page</option>
+                <option [ngValue]="200">200 / page</option>
+              </select>
+              <div class="pagination-buttons">
+                <button type="button" (click)="goToKeywordPage(keywordTable.page - 1)" [disabled]="keywordTable.page <= 1">‹ Prev</button>
+                <button type="button" (click)="goToKeywordPage(keywordTable.page + 1)" [disabled]="keywordTable.page >= keywordTotalPages">Next ›</button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </section>
+    </ng-container>
+  </ng-container>
+
+  <!-- ============ Attendee detail popup ============ -->
+  <div class="modal-overlay" *ngIf="showDetailModal" (click)="closeDetail()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>👤 {{ detailData?.name || 'Attendee' }}</h2>
+        <button class="btn-close" (click)="closeDetail()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="detailLoading" class="loading-inline">Loading...</div>
+        <div *ngIf="detailError" class="error">{{ detailError }}</div>
+
+        <ng-container *ngIf="!detailLoading && !detailError && detailData">
+          <div class="detail-facts">
+            <span><strong>Email:</strong> {{ detailData.email }}</span>
+            <span><strong>Number:</strong> {{ detailData.number }}</span>
+            <span><strong>Total Time:</strong> {{ formatMin(detailData.totalMin) }}</span>
+            <span><strong>Signed Up:</strong> {{ detailData.signedUp ? 'Yes' : 'No' }}</span>
+            <span><strong>Previously Paid:</strong> {{ detailData.previouslyPaid ? 'Yes' : 'No' }}</span>
+            <span *ngIf="detailData.previouslyPaid && detailData.previouslyPaidOn"><strong>Paid On:</strong> {{ detailData.previouslyPaidOn }}</span>
+            <span><strong>Paid (5k):</strong> {{ detailData.paid5k ? 'Yes' : 'No' }}</span>
+          </div>
+          <div class="paid-evidence" *ngIf="detailData.paidEvidence">
+            💬 Chat payment signal at {{ detailData.paidEvidence.wallClock | date: 'h:mm a' }}: "{{ detailData.paidEvidence.msg }}"
+          </div>
+
+          <div class="metric-subsection-label">Session History</div>
+          <table class="data-table" *ngIf="detailData.sessions.length > 0">
+            <thead>
+              <tr><th>Join</th><th>Leave</th><th class="col-num">Duration</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of detailData.sessions">
+                <td>{{ s.joinTime | date: 'd MMM, h:mm:ss a' }}</td>
+                <td>{{ s.leaveTime | date: 'd MMM, h:mm:ss a' }}</td>
+                <td class="col-num">{{ formatMin(s.durationMin) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="detailData.sessions.length === 0" class="no-data">No session data — never joined.</div>
+
+          <div class="metric-subsection-label">Chat ({{ detailData.chat.length }})</div>
+          <div class="chat-log" *ngIf="detailData.chat.length > 0">
+            <div class="chat-line" *ngFor="let c of detailData.chat">
+              <span class="chat-time">{{ c.wallClock | date: 'h:mm:ss a' }}</span>
+              <span class="chat-msg">{{ c.msg }}</span>
+            </div>
+          </div>
+          <div *ngIf="detailData.chat.length === 0" class="no-data">No chat messages.</div>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</div>

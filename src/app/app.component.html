@@ -99,6 +99,15 @@
           <span class="icon">📞</span>
           <span class="label">Sales Calls</span>
         </a>
+        <a
+          *ngIf="authService.hasPermission(permissions.webinarAnalysis)"
+          routerLink="/webinar-analysis"
+          routerLinkActive="active"
+          class="nav-item"
+        >
+          <span class="icon">🎥</span>
+          <span class="label">Webinar Analysis</span>
+        </a>
 
         <a *ngIf="authService.isOwner()" routerLink="/admin" routerLinkActive="active" class="nav-item admin-item">
           <span class="icon">🛡️</span>
