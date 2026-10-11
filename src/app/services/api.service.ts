@@ -156,30 +156,40 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/report/${id}`, { params: this.buildParams({ attendedThresholdMin }) });
   }
 
-  getWebinarMainTable(id: string, attendedThresholdMin: number, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
-    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/main/${id}`, { params: this.buildParams({ attendedThresholdMin, page, pageSize, sortBy, sortDir }) });
+  // `batches` is the multiselect Batch(es)-column filter — each selected tag is percent-encoded
+  // individually then comma-joined, matching how the backend decodes it (see resolveBatchFilter).
+  private joinBatches(batches?: string[]): string | undefined {
+    return batches && batches.length > 0 ? batches.map((b) => encodeURIComponent(b)).join(',') : undefined;
   }
 
-  getWebinarNotJoinedTable(id: string, attendedThresholdMin: number, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
-    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/not-joined/${id}`, { params: this.buildParams({ attendedThresholdMin, page, pageSize, sortBy, sortDir }) });
+  getWebinarBatchOptions(id: string): Observable<APIResponse<string[]>> {
+    return this.http.get<APIResponse<string[]>>(`${this.baseUrl}/webinar-analysis/batch-options/${id}`);
   }
 
-  getWebinarNotRegisteredTable(id: string, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
-    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/not-registered/${id}`, { params: this.buildParams({ page, pageSize, sortBy, sortDir }) });
+  getWebinarMainTable(id: string, attendedThresholdMin: number, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc', batches?: string[], search?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/main/${id}`, { params: this.buildParams({ attendedThresholdMin, page, pageSize, sortBy, sortDir, batches: this.joinBatches(batches), search }) });
+  }
+
+  getWebinarNotJoinedTable(id: string, attendedThresholdMin: number, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc', batches?: string[], search?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/not-joined/${id}`, { params: this.buildParams({ attendedThresholdMin, page, pageSize, sortBy, sortDir, batches: this.joinBatches(batches), search }) });
+  }
+
+  getWebinarNotRegisteredTable(id: string, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc', search?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/not-registered/${id}`, { params: this.buildParams({ page, pageSize, sortBy, sortDir, search }) });
   }
 
   // Auth is attached by the interceptor to HttpClient requests only, not plain <a href> navigation —
   // fetched as a blob here so the token still goes along, then saved client-side by the component.
-  downloadWebinarMainCsv(id: string, attendedThresholdMin: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/webinar-analysis/main/${id}/download`, { params: this.buildParams({ attendedThresholdMin, sortBy, sortDir }), responseType: 'blob' });
+  downloadWebinarMainCsv(id: string, attendedThresholdMin: number, sortBy?: string, sortDir?: 'asc' | 'desc', batches?: string[], search?: string, format?: 'raw' | 'aisensy', tag?: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/main/${id}/download`, { params: this.buildParams({ attendedThresholdMin, sortBy, sortDir, batches: this.joinBatches(batches), search, format, tag }), responseType: 'blob' });
   }
 
-  downloadWebinarNotJoinedCsv(id: string, attendedThresholdMin: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/webinar-analysis/not-joined/${id}/download`, { params: this.buildParams({ attendedThresholdMin, sortBy, sortDir }), responseType: 'blob' });
+  downloadWebinarNotJoinedCsv(id: string, attendedThresholdMin: number, sortBy?: string, sortDir?: 'asc' | 'desc', batches?: string[], search?: string, format?: 'raw' | 'aisensy', tag?: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/not-joined/${id}/download`, { params: this.buildParams({ attendedThresholdMin, sortBy, sortDir, batches: this.joinBatches(batches), search, format, tag }), responseType: 'blob' });
   }
 
-  downloadWebinarNotRegisteredCsv(id: string, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/webinar-analysis/not-registered/${id}/download`, { params: this.buildParams({ sortBy, sortDir }), responseType: 'blob' });
+  downloadWebinarNotRegisteredCsv(id: string, sortBy?: string, sortDir?: 'asc' | 'desc', search?: string, format?: 'raw' | 'aisensy', tag?: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/not-registered/${id}/download`, { params: this.buildParams({ sortBy, sortDir, search, format, tag }), responseType: 'blob' });
   }
 
   getWebinarAttendeeDetail(id: string, email: string): Observable<APIResponse<any>> {
@@ -190,8 +200,12 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/keyword/${id}`, { params: this.buildParams({ keyword, page, pageSize, sortBy, sortDir }) });
   }
 
-  downloadWebinarKeywordCsv(id: string, keyword: string, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/webinar-analysis/keyword/${id}/download`, { params: this.buildParams({ keyword, sortBy, sortDir }), responseType: 'blob' });
+  downloadWebinarKeywordCsv(id: string, keyword: string, sortBy?: string, sortDir?: 'asc' | 'desc', format?: 'raw' | 'aisensy', tag?: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-analysis/keyword/${id}/download`, { params: this.buildParams({ keyword, sortBy, sortDir, format, tag }), responseType: 'blob' });
+  }
+
+  getWebinarChatPeople(id: string): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/webinar-analysis/chat-people/${id}`);
   }
 
   getEmandateTable(date: string): Observable<APIResponse<any>> {

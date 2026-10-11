@@ -30,7 +30,7 @@
       (click)="setSubTab('assessment')">
       <span class="subtab-icon">📋</span> Assessment
     </button>
-    <button type="button" class="subtab-btn csv-download-btn" (click)="downloadCsv()">
+    <button type="button" class="subtab-btn csv-download-btn" (click)="openDownloadModal()">
       <span class="subtab-icon">⬇️</span> Download CSV
     </button>
   </div>
@@ -638,4 +638,42 @@
       </div>
     </div>
   </ng-container>
+
+  <!-- ============ Download format picker (shared by the one Download CSV button) ============ -->
+  <div class="modal-overlay" *ngIf="showDownloadModal" (click)="closeDownloadModal()">
+    <div class="modal-content download-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>⬇ Download</h2>
+        <button class="btn-close" (click)="closeDownloadModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="download-format-options">
+          <label class="download-format-option">
+            <input type="radio" name="downloadFormat" value="raw" [(ngModel)]="downloadFormat">
+            <span>
+              <strong>Raw</strong>
+              <span class="download-format-desc">Every column, exactly as shown in the table</span>
+            </span>
+          </label>
+          <label class="download-format-option">
+            <input type="radio" name="downloadFormat" value="aisensy" [(ngModel)]="downloadFormat">
+            <span>
+              <strong>AiSensy</strong>
+              <span class="download-format-desc">Name, Mobile Number &amp; Tags only — ready for AiSensy's bulk WhatsApp contact import</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="download-tag-group" *ngIf="downloadFormat === 'aisensy'">
+          <span class="filter-label">Tag</span>
+          <input type="text" class="download-tag-input" placeholder="e.g. UsageAnalysis-Main" [(ngModel)]="downloadTagInput">
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" (click)="closeDownloadModal()">Cancel</button>
+          <button type="button" class="btn-apply" (click)="confirmDownload()">Download</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

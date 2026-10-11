@@ -176,6 +176,19 @@ export class FunnelAnalysisComponent implements OnInit, OnDestroy {
   selectedBatchLabel = '';
   selectedBreakdown: BatchBreakdownRow | null = null;
 
+  // Organic, Sales Team and the Attempts/Source card are long and used less often than Webinar —
+  // collapsed by default so the page opens short; click the header to expand/collapse either way.
+  collapsedCards = new Set<string>(['organic', 'salesTeam', 'attempts']);
+
+  isCardCollapsed(key: string): boolean {
+    return this.collapsedCards.has(key);
+  }
+
+  toggleCardCollapsed(key: string) {
+    if (this.collapsedCards.has(key)) this.collapsedCards.delete(key);
+    else this.collapsedCards.add(key);
+  }
+
   sourceChartMode: SourceChartMode = 'total';
 
   // ============ Current Webinar Conversion % (new segment, always the Webinar Lead group) ============

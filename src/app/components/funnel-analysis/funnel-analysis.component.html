@@ -214,29 +214,36 @@
 
   <!-- Organic: paid users whose Lead is anything other than Webinar / Sales Team -->
   <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
-    <h2 class="section-title">
+    <h2 class="section-title collapsible" (click)="toggleCardCollapsed('organic')">
+      <span class="collapse-arrow">{{ isCardCollapsed('organic') ? '▶' : '▼' }}</span>
       Organic
       <span class="section-note">ℹ️ Paid users whose Lead is anything other than Webinar or Sales Team (e.g. Organic, GS Momentum). Registrant numbers come from the registrations sheet, which has no Lead column, so they are the same as in the Webinar card. Has its own "Showing" filter.</span>
     </h2>
-    <ng-container *ngTemplateOutlet="leadCardBody; context: { $implicit: 'organic', showName: false, paidLabel: 'Total Paid (Organic)' }"></ng-container>
+    <ng-container *ngIf="!isCardCollapsed('organic')">
+      <ng-container *ngTemplateOutlet="leadCardBody; context: { $implicit: 'organic', showName: false, paidLabel: 'Total Paid (Organic)' }"></ng-container>
+    </ng-container>
   </section>
 
   <!-- Sales Team: paid users tagged Salesteam in the Lead column -->
   <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
-    <h2 class="section-title">
+    <h2 class="section-title collapsible" (click)="toggleCardCollapsed('salesTeam')">
+      <span class="collapse-arrow">{{ isCardCollapsed('salesTeam') ? '▶' : '▼' }}</span>
       Sales Team
       <span class="section-note">ℹ️ Paid users tagged "Salesteam" in the Lead column. Registrant numbers come from the registrations sheet, which has no Lead column, so they are the same as in the Webinar card. Has its own "Showing" filter.</span>
     </h2>
-    <ng-container *ngTemplateOutlet="leadCardBody; context: { $implicit: 'salesteam', showName: false, paidLabel: 'Total Paid (Sales Team)' }"></ng-container>
+    <ng-container *ngIf="!isCardCollapsed('salesTeam')">
+      <ng-container *ngTemplateOutlet="leadCardBody; context: { $implicit: 'salesteam', showName: false, paidLabel: 'Total Paid (Sales Team)' }"></ng-container>
+    </ng-container>
   </section>
 
   <!-- Attempt numbers + source contribution: moved to the end, deliberately last on the page -->
   <section class="segment-card" *ngIf="authService.hasPermission(permissions.funnelSegment3)">
-    <h2 class="section-title">
+    <h2 class="section-title collapsible" (click)="toggleCardCollapsed('attempts')">
+      <span class="collapse-arrow">{{ isCardCollapsed('attempts') ? '▶' : '▼' }}</span>
       Attempts &amp; Source Contribution
       <span class="section-note">ℹ️ The attempt table covers every paid user. The source chart combines whatever the Webinar, Organic and Sales Team cards above are currently showing.</span>
     </h2>
-    <ng-container *ngIf="!loadingSegment3 && !errorSegment3">
+    <ng-container *ngIf="!isCardCollapsed('attempts') && !loadingSegment3 && !errorSegment3">
       <div class="metric-subsection-label">Conversion by Attempt Number</div>
       <p class="section-subtitle">
         Of the {{ attemptDataAvailable }} conversions with known registration history, how many webinar sign-ups it took before they paid.

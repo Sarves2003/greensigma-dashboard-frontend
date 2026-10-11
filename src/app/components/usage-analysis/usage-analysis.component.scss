@@ -343,6 +343,102 @@
   overflow-x: auto;
 }
 
+// ============ Download format picker ============
+.download-modal {
+  max-width: 440px;
+}
+
+.download-format-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.download-format-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--primary-color, #86efac);
+    background: #f9fdfa;
+  }
+
+  input[type='radio'] {
+    margin-top: 0.2rem;
+  }
+
+  strong {
+    display: block;
+    font-size: 0.9rem;
+    color: #1f2937;
+  }
+
+  .download-format-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.1rem;
+  }
+}
+
+.download-tag-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.download-tag-input {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.btn-cancel {
+  padding: 0.5rem 1.1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+.btn-apply {
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary-color, #15803d);
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.9;
+  }
+}
+
 // ============ User journey detail modal ============
 .detail-overview-grid {
   display: grid;

@@ -562,3 +562,21 @@
   min-width: 0;
   background: white;
 }
+
+// Organic / Sales Team / Attempts & Source Contribution — collapsed by default (see
+// collapsedCards in the component), click the header to expand/collapse.
+.section-title.collapsible {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: #2d7d3d;
+  }
+}
+
+.collapse-arrow {
+  display: inline-block;
+  width: 0.9em;
+  font-size: 0.75em;
+  color: #9ca3af;
+}

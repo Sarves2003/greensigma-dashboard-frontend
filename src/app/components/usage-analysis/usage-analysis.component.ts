@@ -177,6 +177,11 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
   savingNote = false;
   newNoteText = '';
 
+  // ============ Download format picker (Raw or AiSensy, for whichever sub-tab is open) ============
+  showDownloadModal = false;
+  downloadFormat: 'raw' | 'aisensy' = 'raw';
+  downloadTagInput = '';
+
   // ============ Demo Call tab ============
   demoRows: BookingRow[] = [];
   loadingDemo = true;
@@ -933,7 +938,7 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
       r.preferredDate || '',
       this.csvEscape(r.preferredTime || ''),
       this.csvEscape(r.status || ''),
-      this.toIST(r.createdAt),
+      this.csvEscape(this.toIST(r.createdAt)),
       r.registered ? 'Yes' : 'No',
       this.csvEscape(r.matchedType || ''),
       this.csvEscape(r.matchedReferalCode || ''),
@@ -956,9 +961,9 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
         this.csvEscape(r.email),
         this.csvEscape(r.type),
         this.csvEscape(r.referalCode || ''),
-        this.toIST(r.signedUpAt),
+        this.csvEscape(this.toIST(r.signedUpAt)),
         this.daysSinceSignup(r.signedUpAt),
-        r.lastLoginAt ? this.toIST(r.lastLoginAt) : 'Never',
+        this.csvEscape(r.lastLoginAt ? this.toIST(r.lastLoginAt) : 'Never'),
         String(r.demoCallCount),
         String(r.assessmentCount),
         String(r.btCount),
@@ -980,5 +985,45 @@ export class UsageAnalysisComponent implements OnInit, OnDestroy {
     } else {
       this.downloadCsvContent(this.bookingRowsToCsv(this.filteredAssessRows), 'usage-analysis-assessments');
     }
+  }
+
+  // Matches AiSensy's real bulk-contact import schema exactly (confirmed against a working export
+  // from the account): Name, Mobile Number, Source, Tags, Experience, Challenge, Timeline, Capital,
+  // DecisionMaker — the last five are AiSensy's own custom lead-qualification fields, left blank for
+  // a bulk list where we don't have per-contact answers. Rows with no mobile on file are dropped
+  // rather than uploaded as a bad "number" AiSensy would just reject anyway. `tag` is one piece of
+  // free text applied identically to every contact in the file.
+  private buildAisensyCsv(rows: { name: string; mobile: string }[]): string[][] {
+    const header = ['Name', 'Mobile Number', 'Source', 'Tags', 'Experience', 'Challenge', 'Timeline', 'Capital', 'DecisionMaker'];
+    const tag = this.downloadTagInput.trim();
+    const body = rows.filter((r) => r.mobile).map((r) => [this.csvEscape(r.name), r.mobile, '', this.csvEscape(tag), '', '', '', '', '']);
+    return [header, ...body];
+  }
+
+  private downloadAisensyCsv() {
+    if (this.activeSubTab === 'main') {
+      this.downloadCsvContent(this.buildAisensyCsv(this.sortedMainRows), 'usage-analysis-main-aisensy');
+    } else if (this.activeSubTab === 'demoCall') {
+      this.downloadCsvContent(this.buildAisensyCsv(this.filteredDemoRows), 'usage-analysis-demo-calls-aisensy');
+    } else {
+      this.downloadCsvContent(this.buildAisensyCsv(this.filteredAssessRows), 'usage-analysis-assessments-aisensy');
+    }
+  }
+
+  // ============ Download format picker ============
+  openDownloadModal() {
+    this.downloadFormat = 'raw';
+    this.downloadTagInput = '';
+    this.showDownloadModal = true;
+  }
+
+  closeDownloadModal() {
+    this.showDownloadModal = false;
+  }
+
+  confirmDownload() {
+    if (this.downloadFormat === 'aisensy') this.downloadAisensyCsv();
+    else this.downloadCsv();
+    this.closeDownloadModal();
   }
 }

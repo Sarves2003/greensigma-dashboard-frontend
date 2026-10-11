@@ -1,13 +1,14 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { Observable, Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { PERMISSIONS } from '../../config/permissions';
 
-type SubTab = 'main' | 'notJoined' | 'notRegistered' | 'keyword';
+type SubTab = 'main' | 'notJoined' | 'notRegistered' | 'keyword' | 'chat';
 
 interface CountPct {
   count: number;
@@ -23,6 +24,21 @@ interface WebinarSummary {
   attendeeCount: number;
 }
 
+interface SegmentReport {
+  totalRegistered: number;
+  attended: CountPct;
+  totalChats: number;
+  avgAttendedDurationMin: number | null;
+  avgRejoinsAttended: number | null;
+  peakConcurrent: { count: number; atTime: string | null };
+  stayedTillMiddle: CountPct;
+  stayedTillEnd2hr: CountPct | null;
+  stayedTill150Min: CountPct | null;
+  stayedTill180Min: CountPct | null;
+  conversions: { count: number; avgAttendedMin: number | null };
+  reRegisteredToday: CountPct | null;
+}
+
 interface WebinarReport {
   webinar: {
     id: string;
@@ -36,19 +52,15 @@ interface WebinarReport {
   attendedThresholdMin: number;
   cards: {
     totalRegistered: number;
-    registeredViaFunnel: CountPct;
-    fromPreviousWebinar: CountPct;
-    previouslyPaid: CountPct;
-    organic: CountPct;
-    attended: CountPct;
-    totalChats: number;
-    avgAttendedDurationMin: number | null;
-    avgRejoinsAttended: number | null;
-    peakConcurrent: { count: number; atTime: string | null };
-    stayedTillMiddle: CountPct;
-    stayedTillEnd2hr: CountPct | null;
+    segments: {
+      current: SegmentReport;
+      previousNotPaid: SegmentReport;
+      alreadyPaid: SegmentReport;
+      organic: SegmentReport;
+    };
   };
   registrationDataAvailable: boolean;
+  funnelPaidTotal: number | null;
 }
 
 type SortDir = 'asc' | 'desc';
@@ -57,8 +69,9 @@ interface MainRow {
   email: string;
   name: string;
   number: string;
-  batchLabel: string;
+  registeredBatches: string | null;
   paid5k: boolean;
+  paidOnBatch: string | null;
   totalMin: number;
   rejoins: number;
   chatCount: number;
@@ -69,8 +82,9 @@ interface NotJoinedRow {
   email: string;
   name: string;
   number: string;
-  batchLabel: string;
+  registeredBatches: string | null;
   paid5k: boolean;
+  paidOnBatch: string | null;
   signedUp: boolean;
 }
 
@@ -87,6 +101,15 @@ interface KeywordRow {
   name: string;
   number: string;
   timeIso: string;
+  msg: string;
+}
+
+interface ChatPersonRow {
+  email: string;
+  name: string;
+  number: string;
+  signedUp: boolean;
+  chatCount: number;
 }
 
 interface PagedResult<T> {
@@ -104,7 +127,8 @@ interface AttendeeDetail {
   previouslyPaid: boolean;
   previouslyPaidOn: string | null;
   paid5k: boolean;
-  paidEvidence: { msg: string; wallClock: string | null } | null;
+  paidOnBatch: string | null;
+  registeredBatches: string | null;
   totalMin: number;
   sessions: { joinTime: string; leaveTime: string; durationMin: number }[];
   chat: { wallClock: string | null; msg: string }[];
@@ -136,12 +160,20 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
 
   activeSubTab: SubTab = 'main';
 
+  // Batch(es) column filter — shared by Main and Not Joined since both key off the same per-person
+  // registeredBatches data. Empty selection means "no filter" (show everyone), not "show nobody".
+  allBatchOptions: string[] = [];
+  selectedBatches = new Set<string>();
+  showBatchFilterPanel = false;
+
   mainTable: PagedResult<MainRow> | null = null;
   mainLoading = false;
   mainError: string | null = null;
   mainPageSize = 20;
   mainSortBy: string | null = null;
   mainSortDir: SortDir = 'desc';
+  mainSearchInput = '';
+  private mainSearch$ = new Subject<void>();
 
   notJoinedTable: PagedResult<NotJoinedRow> | null = null;
   notJoinedLoading = false;
@@ -149,6 +181,8 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
   notJoinedPageSize = 20;
   notJoinedSortBy: string | null = null;
   notJoinedSortDir: SortDir = 'desc';
+  notJoinedSearchInput = '';
+  private notJoinedSearch$ = new Subject<void>();
 
   notRegisteredTable: (PagedResult<NotRegisteredRow> & { registrationDataAvailable: boolean }) | null = null;
   notRegisteredLoading = false;
@@ -156,6 +190,8 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
   notRegisteredPageSize = 20;
   notRegisteredSortBy: string | null = null;
   notRegisteredSortDir: SortDir = 'desc';
+  notRegisteredSearchInput = '';
+  private notRegisteredSearch$ = new Subject<void>();
 
   keywordInput = '';
   keywordTable: PagedResult<KeywordRow> | null = null;
@@ -165,6 +201,16 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
   keywordSortBy: string | null = null;
   keywordSortDir: SortDir = 'desc';
   private keywordSearch$ = new Subject<void>();
+
+  // ============ Chat tab (browse one person's full transcript cleanly) ============
+  chatPeople: ChatPersonRow[] = [];
+  chatPeopleLoading = false;
+  chatPersonSearchInput = ''; // client-side only — the full chatPeople list is small and already loaded
+  selectedChatEmail: string | null = null;
+  chatDetail: AttendeeDetail | null = null;
+  chatDetailLoading = false;
+  chatDetailError: string | null = null;
+  chatKeywordFilterInput = ''; // narrows the selected person's OWN messages, with the match highlighted
 
   showUploadPanel = false;
   participantsFile: File | null = null;
@@ -177,13 +223,22 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
   detailError: string | null = null;
   detailData: AttendeeDetail | null = null;
 
+  // ============ Download format picker (shared by every download button on this tab) ============
+  showDownloadModal = false;
+  downloadKind: 'main' | 'notJoined' | 'notRegistered' | 'keyword' | null = null;
+  downloadFormat: 'raw' | 'aisensy' = 'raw';
+  downloadTagInput = '';
+
   private destroy$ = new Subject<void>();
 
-  constructor(private apiService: ApiService, public authService: AuthService) {}
+  constructor(private apiService: ApiService, public authService: AuthService, private sanitizer: DomSanitizer) {}
 
   ngOnInit() {
     this.loadWebinarList();
     this.keywordSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadKeywordTable(1));
+    this.mainSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadMainTable(1));
+    this.notJoinedSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadNotJoinedTable(1));
+    this.notRegisteredSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadNotRegisteredTable(1));
   }
 
   ngOnDestroy() {
@@ -207,13 +262,12 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
           if (response.success && response.data) {
             this.webinars = response.data;
             if (!this.selectedWebinarId && this.webinars.length > 0) {
-              this.selectedWebinarId = this.webinars[0].id;
+              this.selectWebinar(this.webinars[0].id);
             }
           } else {
             this.listError = response.error || 'Failed to load uploaded webinars';
           }
           this.listLoading = false;
-          if (this.selectedWebinarId) this.loadAll();
         },
         error: (err) => {
           this.listError = err?.error?.error || 'Failed to load uploaded webinars';
@@ -223,9 +277,29 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
   }
 
   onWebinarChange(id: string) {
+    this.selectWebinar(id);
+  }
+
+  // Single entry point for "a webinar is now selected" — used both by the dropdown's change handler
+  // AND the initial auto-select on page load, so the latter can never again skip a step (it did, for
+  // loadBatchOptions, until this was pulled out: the table showed real batch tags while the filter
+  // dropdown claimed "No batch data for this webinar" because only the dropdown path called it).
+  private selectWebinar(id: string) {
     this.selectedWebinarId = id;
     this.keywordInput = '';
     this.keywordTable = null;
+    this.mainSearchInput = '';
+    this.notJoinedSearchInput = '';
+    this.notRegisteredSearchInput = '';
+    this.selectedBatches = new Set<string>();
+    this.allBatchOptions = [];
+    this.chatPeople = [];
+    this.chatPersonSearchInput = '';
+    this.selectedChatEmail = null;
+    this.chatDetail = null;
+    this.chatKeywordFilterInput = '';
+    this.loadBatchOptions();
+    this.loadChatPeople();
     this.loadAll();
   }
 
@@ -242,6 +316,55 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
     this.loadMainTable(1);
     this.loadNotJoinedTable(1);
     this.loadNotRegisteredTable(1);
+  }
+
+  // ============ Batch(es) filter (shared by Main + Not Joined) ============
+  private loadBatchOptions() {
+    if (!this.selectedWebinarId) return;
+    this.apiService
+      .getWebinarBatchOptions(this.selectedWebinarId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) this.allBatchOptions = response.data;
+        },
+      });
+  }
+
+  toggleBatchFilterPanel() {
+    this.showBatchFilterPanel = !this.showBatchFilterPanel;
+  }
+
+  isBatchSelected(tag: string): boolean {
+    return this.selectedBatches.has(tag);
+  }
+
+  toggleBatchOption(tag: string) {
+    if (this.selectedBatches.has(tag)) this.selectedBatches.delete(tag);
+    else this.selectedBatches.add(tag);
+    this.onBatchFilterChange();
+  }
+
+  clearBatchFilter() {
+    this.selectedBatches = new Set<string>();
+    this.onBatchFilterChange();
+  }
+
+  get batchFilterLabel(): string {
+    if (this.selectedBatches.size === 0) return 'All Batches';
+    if (this.selectedBatches.size === 1) return [...this.selectedBatches][0];
+    return `${this.selectedBatches.size} batches selected`;
+  }
+
+  private batchParam(): string[] | undefined {
+    return this.selectedBatches.size > 0 ? Array.from(this.selectedBatches) : undefined;
+  }
+
+  // Shared by Main and Not Joined, so a selection made while looking at one tab is already applied
+  // when you switch to the other.
+  private onBatchFilterChange() {
+    this.loadMainTable(1);
+    this.loadNotJoinedTable(1);
   }
 
   // ============ Report ============
@@ -271,7 +394,7 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
     this.mainLoading = true;
     this.mainError = null;
     this.apiService
-      .getWebinarMainTable(this.selectedWebinarId, this.attendedThresholdMin, page, this.mainPageSize, this.mainSortBy || undefined, this.mainSortDir)
+      .getWebinarMainTable(this.selectedWebinarId, this.attendedThresholdMin, page, this.mainPageSize, this.mainSortBy || undefined, this.mainSortDir, this.batchParam(), this.mainSearchInput.trim() || undefined)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
@@ -310,13 +433,17 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
     this.loadMainTable(1);
   }
 
+  onMainSearchInput() {
+    this.mainSearch$.next();
+  }
+
   // ============ Not Joined table ============
   loadNotJoinedTable(page: number) {
     if (!this.selectedWebinarId) return;
     this.notJoinedLoading = true;
     this.notJoinedError = null;
     this.apiService
-      .getWebinarNotJoinedTable(this.selectedWebinarId, this.attendedThresholdMin, page, this.notJoinedPageSize, this.notJoinedSortBy || undefined, this.notJoinedSortDir)
+      .getWebinarNotJoinedTable(this.selectedWebinarId, this.attendedThresholdMin, page, this.notJoinedPageSize, this.notJoinedSortBy || undefined, this.notJoinedSortDir, this.batchParam(), this.notJoinedSearchInput.trim() || undefined)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
@@ -355,13 +482,17 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
     this.loadNotJoinedTable(1);
   }
 
+  onNotJoinedSearchInput() {
+    this.notJoinedSearch$.next();
+  }
+
   // ============ Not Registered table ============
   loadNotRegisteredTable(page: number) {
     if (!this.selectedWebinarId) return;
     this.notRegisteredLoading = true;
     this.notRegisteredError = null;
     this.apiService
-      .getWebinarNotRegisteredTable(this.selectedWebinarId, page, this.notRegisteredPageSize, this.notRegisteredSortBy || undefined, this.notRegisteredSortDir)
+      .getWebinarNotRegisteredTable(this.selectedWebinarId, page, this.notRegisteredPageSize, this.notRegisteredSortBy || undefined, this.notRegisteredSortDir, this.notRegisteredSearchInput.trim() || undefined)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
@@ -400,6 +531,10 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
     this.loadNotRegisteredTable(1);
   }
 
+  onNotRegisteredSearchInput() {
+    this.notRegisteredSearch$.next();
+  }
+
   private triggerCsvDownload(blob: Blob, filenamePrefix: string) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -409,28 +544,52 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
     window.URL.revokeObjectURL(url);
   }
 
-  downloadMain() {
+  // ============ Download format picker ============
+  // Every download button on this tab opens the same modal first — "Raw" (all columns, the
+  // long-standing behaviour) or "AiSensy" (Name/Mobile Number/Tags only, for bulk WhatsApp import),
+  // with a Tag text field that only appears for AiSensy, since AiSensy needs one to know which
+  // broadcast list/segment these contacts belong to.
+  openDownloadModal(kind: 'main' | 'notJoined' | 'notRegistered' | 'keyword') {
     if (!this.selectedWebinarId) return;
-    this.apiService
-      .downloadWebinarMainCsv(this.selectedWebinarId, this.attendedThresholdMin, this.mainSortBy || undefined, this.mainSortDir)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((blob) => this.triggerCsvDownload(blob, 'main'));
+    if (kind === 'keyword' && !this.keywordInput.trim()) return;
+    this.downloadKind = kind;
+    this.downloadFormat = 'raw';
+    this.downloadTagInput = '';
+    this.showDownloadModal = true;
   }
 
-  downloadNotJoined() {
-    if (!this.selectedWebinarId) return;
-    this.apiService
-      .downloadWebinarNotJoinedCsv(this.selectedWebinarId, this.attendedThresholdMin, this.notJoinedSortBy || undefined, this.notJoinedSortDir)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((blob) => this.triggerCsvDownload(blob, 'not-joined'));
+  closeDownloadModal() {
+    this.showDownloadModal = false;
+    this.downloadKind = null;
   }
 
-  downloadNotRegistered() {
-    if (!this.selectedWebinarId) return;
-    this.apiService
-      .downloadWebinarNotRegisteredCsv(this.selectedWebinarId, this.notRegisteredSortBy || undefined, this.notRegisteredSortDir)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((blob) => this.triggerCsvDownload(blob, 'not-registered'));
+  confirmDownload() {
+    if (!this.selectedWebinarId || !this.downloadKind) return;
+    const format = this.downloadFormat;
+    const tag = this.downloadTagInput.trim();
+
+    let obs: Observable<Blob>;
+    let filenamePrefix: string;
+
+    if (this.downloadKind === 'main') {
+      filenamePrefix = 'main';
+      obs = this.apiService.downloadWebinarMainCsv(this.selectedWebinarId, this.attendedThresholdMin, this.mainSortBy || undefined, this.mainSortDir, this.batchParam(), this.mainSearchInput.trim() || undefined, format, tag);
+    } else if (this.downloadKind === 'notJoined') {
+      filenamePrefix = 'not-joined';
+      obs = this.apiService.downloadWebinarNotJoinedCsv(this.selectedWebinarId, this.attendedThresholdMin, this.notJoinedSortBy || undefined, this.notJoinedSortDir, this.batchParam(), this.notJoinedSearchInput.trim() || undefined, format, tag);
+    } else if (this.downloadKind === 'notRegistered') {
+      filenamePrefix = 'not-registered';
+      obs = this.apiService.downloadWebinarNotRegisteredCsv(this.selectedWebinarId, this.notRegisteredSortBy || undefined, this.notRegisteredSortDir, this.notRegisteredSearchInput.trim() || undefined, format, tag);
+    } else {
+      if (!this.keywordInput.trim()) return;
+      filenamePrefix = `keyword-${this.keywordInput.trim()}`;
+      obs = this.apiService.downloadWebinarKeywordCsv(this.selectedWebinarId, this.keywordInput.trim(), this.keywordSortBy || undefined, this.keywordSortDir, format, tag);
+    }
+
+    obs.pipe(takeUntil(this.destroy$)).subscribe((blob) => {
+      this.triggerCsvDownload(blob, format === 'aisensy' ? `${filenamePrefix}-aisensy` : filenamePrefix);
+    });
+    this.closeDownloadModal();
   }
 
   // ============ Keyword search ============
@@ -486,14 +645,6 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
       this.keywordSortDir = 'asc';
     }
     this.loadKeywordTable(1);
-  }
-
-  downloadKeyword() {
-    if (!this.selectedWebinarId || !this.keywordInput.trim()) return;
-    this.apiService
-      .downloadWebinarKeywordCsv(this.selectedWebinarId, this.keywordInput.trim(), this.keywordSortBy || undefined, this.keywordSortDir)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((blob) => this.triggerCsvDownload(blob, `keyword-${this.keywordInput.trim()}`));
   }
 
   // ============ Upload ============
@@ -571,5 +722,112 @@ export class WebinarAnalysisComponent implements OnInit, OnDestroy {
     const h = Math.floor(min / 60);
     const m = Math.round(min % 60);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  pctOfTotal(n: number): number {
+    const total = this.report?.cards.totalRegistered || 0;
+    return total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
+  }
+
+  // Every attendee falls into exactly one of these four (see the backend's priority order: already
+  // paid first, then an earlier registration, then today's, Organic as the catch-all) — driving the
+  // template off this list instead of repeating the same 10-card block four times by hand.
+  get segmentSections(): { key: string; title: string; totalTitle: string; data: SegmentReport }[] {
+    if (!this.report) return [];
+    const s = this.report.cards.segments;
+    return [
+      { key: 'current', title: 'Current Webinar', totalTitle: 'Registered via the funnel for THIS webinar date with no earlier registration on file, not already paid before it (a live conversion today still counts as Current, not Already Paid)', data: s.current },
+      { key: 'previousNotPaid', title: 'From Previous Webinar (Not Paid)', totalTitle: 'Their EARLIEST registration (₹79/₹99) via the funnel was for an EARLIER webinar, not already paid before this one — still counted here even if they also registered again for today', data: s.previousNotPaid },
+      { key: 'alreadyPaid', title: 'Already Paid Members', totalTitle: 'Tribe / TribeYearly, or confirmed paid the 5k STRICTLY BEFORE this webinar\'s date — paying live during today\'s session does not count here', data: s.alreadyPaid },
+      { key: 'organic', title: 'Organic', totalTitle: 'Everyone left over — no tracked registration source, not already paid before this webinar', data: s.organic },
+    ];
+  }
+
+  // "Registered Batch(es)" is stored as one comma-joined string ("20th Dec 2025 Momentum, 3rd Oct
+  // 2026 Momentum") — split back into a list here so the template can stack them as chips instead of
+  // one long line that blows out the column width.
+  batchTags(registeredBatches: string | null): string[] {
+    return registeredBatches ? registeredBatches.split(', ') : [];
+  }
+
+  // ============ Chat tab ============
+  private loadChatPeople() {
+    if (!this.selectedWebinarId) return;
+    this.chatPeopleLoading = true;
+    this.apiService
+      .getWebinarChatPeople(this.selectedWebinarId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) this.chatPeople = response.data;
+          this.chatPeopleLoading = false;
+        },
+        error: () => {
+          this.chatPeopleLoading = false;
+        },
+      });
+  }
+
+  // Small, already-fully-loaded list — filtered instantly client-side rather than round-tripping
+  // the server on every keystroke like the paginated tables have to.
+  get filteredChatPeople(): ChatPersonRow[] {
+    const q = this.chatPersonSearchInput.trim().toLowerCase();
+    if (!q) return this.chatPeople;
+    return this.chatPeople.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.number.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || (p.signedUp ? 'yes' : 'no').includes(q)
+    );
+  }
+
+  selectChatPerson(email: string) {
+    if (!this.selectedWebinarId) return;
+    this.selectedChatEmail = email;
+    this.chatKeywordFilterInput = '';
+    this.chatDetailLoading = true;
+    this.chatDetailError = null;
+    this.chatDetail = null;
+    this.apiService
+      .getWebinarAttendeeDetail(this.selectedWebinarId, email)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) this.chatDetail = response.data;
+          else this.chatDetailError = response.error || 'Failed to load chat';
+          this.chatDetailLoading = false;
+        },
+        error: (err) => {
+          this.chatDetailError = err?.error?.error || 'Failed to load chat';
+          this.chatDetailLoading = false;
+        },
+      });
+  }
+
+  closeChatPerson() {
+    this.selectedChatEmail = null;
+    this.chatDetail = null;
+  }
+
+  // The whole transcript is already loaded for the selected person, so "search by keyword" just
+  // narrows this in-memory list — no extra round trip needed.
+  get filteredChatMessages(): { wallClock: string | null; msg: string }[] {
+    if (!this.chatDetail) return [];
+    const q = this.chatKeywordFilterInput.trim().toLowerCase();
+    if (!q) return this.chatDetail.chat;
+    return this.chatDetail.chat.filter((c) => c.msg.toLowerCase().includes(q));
+  }
+
+  private escapeHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Wraps the active keyword match in <mark> so it's visible at a glance while scanning a long
+  // transcript — text is HTML-escaped first so chat content itself can never inject markup. Takes
+  // the term explicitly so both the Chat tab (its own within-chat search) and the Keyword tab (the
+  // word that was searched) can reuse the same highlighter.
+  highlightedMsg(msg: string, term: string): SafeHtml {
+    const escaped = this.escapeHtml(msg);
+    const q = term.trim();
+    if (!q) return this.sanitizer.bypassSecurityTrustHtml(escaped);
+    const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig');
+    return this.sanitizer.bypassSecurityTrustHtml(escaped.replace(re, '<mark>$1</mark>'));
   }
 }
