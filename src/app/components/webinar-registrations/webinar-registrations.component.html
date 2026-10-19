@@ -1,0 +1,200 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Webinar Registrations</h1>
+    <p class="subtitle">Live ₹79/₹99 checkout funnel — registered, not paid, and failed, per webinar date</p>
+  </div>
+
+  <div *ngIf="listLoading" class="loading-inline">Loading webinars...</div>
+  <div *ngIf="listError" class="error">{{ listError }}</div>
+
+  <ng-container *ngIf="!listLoading && !listError">
+    <section class="segment-card filter-card">
+      <div class="filter-row">
+        <div class="filter-group">
+          <span class="filter-label">Webinar</span>
+          <select [ngModel]="selectedWebinarId" (ngModelChange)="onWebinarChange($event)" [disabled]="webinars.length === 0">
+            <option *ngFor="let w of webinars" [value]="w.id">{{ w.label }}</option>
+          </select>
+        </div>
+      </div>
+      <span class="section-note" *ngIf="webinars.length === 0">No webinar registration records found yet.</span>
+    </section>
+
+    <ng-container *ngIf="selectedWebinarId">
+      <!-- ============ Summary cards ============ -->
+      <section class="segment-card">
+        <h2 class="section-title">
+          {{ selectedWebinarLabel }}
+          <span class="section-note" *ngIf="summary">{{ summary.totalDistinctPeople }} distinct people tracked for this webinar (deduped across repeat checkout attempts)</span>
+          <button type="button" class="refresh-btn" (click)="refresh()" [disabled]="isRefreshing" title="Re-fetch live counts for this webinar">
+            <span [class.spinning]="isRefreshing">🔄</span> {{ isRefreshing ? 'Refreshing…' : 'Refresh' }}
+          </button>
+        </h2>
+
+        <div *ngIf="summaryLoading" class="loading-inline">Loading summary...</div>
+        <div *ngIf="summaryError" class="error">{{ summaryError }}</div>
+
+        <div class="kpi-grid" *ngIf="!summaryLoading && !summaryError && summary">
+          <div
+            class="kpi-card accent-green clickable"
+            [class.selected]="activeCategory === 'success'"
+            (click)="setCategory('success')"
+            title="Everyone with at least one successful payment for this webinar"
+          >
+            <span class="kpi-value">{{ summary.totalRegistered }}</span>
+            <span class="kpi-label">Total Registered</span>
+          </div>
+          <div
+            class="kpi-card accent-red clickable"
+            [class.selected]="activeCategory === 'failed'"
+            (click)="setCategory('failed')"
+            title="Never paid, and at least one attempt was explicitly declined — someone who eventually paid on a later attempt is never counted here"
+          >
+            <span class="kpi-value">{{ summary.failed }}</span>
+            <span class="kpi-label">Failed</span>
+          </div>
+          <div
+            class="kpi-card accent-orange clickable"
+            [class.selected]="activeCategory === 'notpaid'"
+            (click)="setCategory('notpaid')"
+            title="Started checkout but never completed payment — no success, no explicit decline either, just abandoned"
+          >
+            <span class="kpi-value">{{ summary.notPaid }}</span>
+            <span class="kpi-label">Not Paid</span>
+          </div>
+          <div
+            class="kpi-card accent-purple clickable"
+            [class.selected]="activeCategory === 'all'"
+            (click)="setCategory('all')"
+            title="Every checkout attempt document for this webinar (Razorpay order creations) — click to see every distinct person regardless of outcome, each with their own attempt count"
+          >
+            <span class="kpi-value">{{ summary.totalAttempts }}</span>
+            <span class="kpi-sub">{{ summary.totalDistinctPeople }} distinct people</span>
+            <span class="kpi-label">Total Attempts</span>
+          </div>
+          <div class="kpi-card accent-blue conversions-highlight" title="Sum of the amount field across every successful registrant for this webinar">
+            <span class="kpi-value">{{ formatINR(summary.amountCollected) }}</span>
+            <span class="kpi-label">Amount Collected</span>
+          </div>
+          <div class="kpi-card accent-indigo" title="Of Total Registered, how many were confirmed sent the post-payment Telegram welcome message">
+            <span class="kpi-value">{{ summary.welcomeMessageSent }}</span>
+            <span class="kpi-sub">{{ welcomeMessagePct }}% of {{ summary.totalRegistered }} registered</span>
+            <span class="kpi-label">Welcome Message Sent</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Filtered table ============ -->
+      <section class="segment-card">
+        <h2 class="section-title">
+          {{ categoryTitle }}
+          <span class="section-note">{{ categoryNote }}</span>
+          <button type="button" class="download-btn" (click)="openDownloadModal()" *ngIf="table && table.rows.length > 0">⬇ Download CSV</button>
+        </h2>
+
+        <input
+          type="text"
+          class="identity-search-input"
+          placeholder="Search by name, number or email"
+          [(ngModel)]="searchInput"
+          (ngModelChange)="onSearchInput()"
+        >
+
+        <div *ngIf="tableLoading" class="loading-inline">Loading...</div>
+        <div *ngIf="tableError" class="error">{{ tableError }}</div>
+
+        <ng-container *ngIf="!tableLoading && !tableError && table">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="sortable" (click)="toggleSort('name')">Name{{ sortBy === 'name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSort('phone')">Number{{ sortBy === 'phone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSort('email')">Email{{ sortBy === 'email' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSort('source')">Source{{ sortBy === 'source' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="col-num sortable" (click)="toggleSort('attempts')">Attempts{{ sortBy === 'attempts' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th *ngIf="activeCategory === 'all'">Status</th>
+                  <th class="col-num sortable" *ngIf="activeCategory === 'success' || activeCategory === 'all'" (click)="toggleSort('amount')">Amount{{ sortBy === 'amount' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" *ngIf="activeCategory === 'success' || activeCategory === 'all'" (click)="toggleSort('paymentMethod')">Payment Method{{ sortBy === 'paymentMethod' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSort('firstAttemptAt')">First Attempt{{ sortBy === 'firstAttemptAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" *ngIf="activeCategory === 'success' || activeCategory === 'all'" (click)="toggleSort('paidAt')">Paid On{{ sortBy === 'paidAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th *ngIf="activeCategory === 'success' || activeCategory === 'all'">Welcome Msg</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of table.rows">
+                  <td>{{ r.name || '—' }}</td>
+                  <td>{{ r.phone }}</td>
+                  <td>{{ r.email || '—' }}</td>
+                  <td class="source-cell" [title]="r.source">{{ r.source || '—' }}</td>
+                  <td class="col-num">{{ r.attempts }}</td>
+                  <td *ngIf="activeCategory === 'all'"><span class="status-badge" [class]="'status-' + r.status">{{ statusLabel(r.status) }}</span></td>
+                  <td class="col-num" *ngIf="activeCategory === 'success' || activeCategory === 'all'">{{ r.status === 'success' && r.amount != null ? formatINR(r.amount) : '—' }}</td>
+                  <td *ngIf="activeCategory === 'success' || activeCategory === 'all'">{{ r.status === 'success' ? (r.paymentMethod || '—') : '—' }}</td>
+                  <td>{{ r.firstAttemptAt | date: 'd MMM, h:mm a' }}</td>
+                  <td *ngIf="activeCategory === 'success' || activeCategory === 'all'">{{ r.status === 'success' && r.paidAt ? (r.paidAt | date: 'd MMM, h:mm a') : '—' }}</td>
+                  <td *ngIf="activeCategory === 'success' || activeCategory === 'all'">{{ r.status === 'success' && r.welcomeMessageSent ? '✅' : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div *ngIf="table.rows.length === 0" class="no-data">No one in this category for this webinar.</div>
+
+          <div class="pagination" *ngIf="table.total > 0">
+            <span class="pagination-info">Page {{ table.page }} of {{ totalPages }} ({{ table.total }} people)</span>
+            <div class="pagination-controls">
+              <select [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+                <option [ngValue]="10">10 / page</option>
+                <option [ngValue]="20">20 / page</option>
+                <option [ngValue]="50">50 / page</option>
+                <option [ngValue]="100">100 / page</option>
+              </select>
+              <div class="pagination-buttons">
+                <button type="button" (click)="goToPage(table.page - 1)" [disabled]="table.page <= 1">‹ Prev</button>
+                <button type="button" (click)="goToPage(table.page + 1)" [disabled]="table.page >= totalPages">Next ›</button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </section>
+    </ng-container>
+  </ng-container>
+
+  <!-- ============ Download format picker ============ -->
+  <div class="modal-overlay" *ngIf="showDownloadModal" (click)="closeDownloadModal()">
+    <div class="modal-content download-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>⬇ Download</h2>
+        <button class="btn-close" (click)="closeDownloadModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="download-format-options">
+          <label class="download-format-option">
+            <input type="radio" name="downloadFormat" value="raw" [(ngModel)]="downloadFormat">
+            <span>
+              <strong>Raw</strong>
+              <span class="download-format-desc">Every column, exactly as shown in the table</span>
+            </span>
+          </label>
+          <label class="download-format-option">
+            <input type="radio" name="downloadFormat" value="aisensy" [(ngModel)]="downloadFormat">
+            <span>
+              <strong>AiSensy</strong>
+              <span class="download-format-desc">Name, Mobile Number &amp; Tags only — ready for AiSensy's bulk WhatsApp contact import</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="download-tag-group" *ngIf="downloadFormat === 'aisensy'">
+          <span class="filter-label">Tag</span>
+          <input type="text" class="download-tag-input" placeholder="e.g. 17Oct-NotPaid" [(ngModel)]="downloadTagInput">
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" (click)="closeDownloadModal()">Cancel</button>
+          <button type="button" class="btn-apply" (click)="confirmDownload()">Download</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

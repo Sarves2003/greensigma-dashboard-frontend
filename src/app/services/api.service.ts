@@ -208,6 +208,44 @@ export class ApiService {
     return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/webinar-analysis/chat-people/${id}`);
   }
 
+  // ============ Webinar Registrations (live ₹79/₹99 checkout funnel, separate from the Zoom-CSV-driven Webinar Analysis above) ============
+  getWebinarRegistrationsList(): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/webinar-registrations/list`);
+  }
+
+  getWebinarRegistrationsSummary(webinarId: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-registrations/summary/${webinarId}`);
+  }
+
+  getWebinarRegistrationsTable(
+    webinarId: string,
+    category: 'success' | 'failed' | 'notpaid' | 'all',
+    page: number,
+    pageSize: number,
+    sortBy?: string,
+    sortDir?: 'asc' | 'desc',
+    search?: string
+  ): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-registrations/table/${webinarId}`, {
+      params: this.buildParams({ category, page, pageSize, sortBy, sortDir, search }),
+    });
+  }
+
+  downloadWebinarRegistrationsCsv(
+    webinarId: string,
+    category: 'success' | 'failed' | 'notpaid' | 'all',
+    sortBy?: string,
+    sortDir?: 'asc' | 'desc',
+    search?: string,
+    format?: 'raw' | 'aisensy',
+    tag?: string
+  ): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/webinar-registrations/table/${webinarId}/download`, {
+      params: this.buildParams({ category, sortBy, sortDir, search, format, tag }),
+      responseType: 'blob',
+    });
+  }
+
   getEmandateTable(date: string): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/emandate-tracker/table`, { params: this.buildParams({ date }) });
   }

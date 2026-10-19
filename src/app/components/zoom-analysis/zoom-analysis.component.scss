@@ -1,0 +1,960 @@
+.dashboard-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+
+  h1 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    color: #6b7280;
+    margin: 0.25rem 0 0 0;
+  }
+}
+
+.loading-inline {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.error {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  margin: 1rem 0;
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.no-data {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.section-subtitle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0 0 0.6rem 0;
+}
+
+.metric-subsection-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 1.5rem 0 0.25rem 0;
+}
+
+// ============ Filter bar ============
+.filter-card {
+  padding-bottom: 1.1rem;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+
+  .filter-label {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    flex-basis: 100%;
+  }
+
+  select {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: white;
+    color: #1f2937;
+    min-width: 260px;
+  }
+
+  .threshold-input {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    width: 90px;
+  }
+}
+
+.upload-btn {
+  margin-left: auto;
+  padding: 0.5rem 1rem;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+
+  &:hover {
+    background: #dbeafe;
+  }
+}
+
+.upload-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eef0f2;
+}
+
+.upload-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1.2rem;
+}
+
+.upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+
+  input[type='file'] {
+    font-size: 0.8rem;
+  }
+}
+
+.btn-apply {
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 6px;
+  background: #15803d;
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #166534;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.section-note {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.section-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 1.1rem;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+}
+
+.keyword-input, .identity-search-input {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+
+  &:focus {
+    outline: none;
+    border-color: #15803d;
+    box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12);
+  }
+}
+
+.identity-search-input {
+  background: #fafafa;
+}
+
+// Message text wraps instead of forcing horizontal scroll like the rest of the table's nowrap cells.
+.keyword-msg-cell {
+  white-space: normal;
+  max-width: 420px;
+
+  ::ng-deep mark {
+    background: #fde047;
+    color: #713f12;
+    border-radius: 3px;
+    padding: 0 0.1rem;
+  }
+}
+
+.download-btn {
+  margin-left: auto;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 0.8rem;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+// ============ Sub-tab switcher ============
+.subtab-switcher {
+  display: inline-flex;
+  gap: 0.35rem;
+  background: #eef1ee;
+  border-radius: 12px;
+  padding: 0.35rem;
+  margin-bottom: 1.5rem;
+}
+
+.subtab-btn {
+  padding: 0.55rem 1.1rem;
+  border-radius: 9px;
+  background: transparent;
+  color: #4b5563;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(45, 125, 61, 0.08);
+  }
+
+  &.active {
+    background: white;
+    color: var(--primary-dark);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// ============ KPI cards ============
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+
+// The lone "Total Unique Zoom Registered" card sits outside any segment — without this it would
+// stretch to the full row width (auto-fit collapses to a single 1fr column with only one card),
+// looking oversized next to the compact per-segment grids below it.
+.total-registered-row {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 220px));
+  justify-content: start;
+  margin-bottom: 0;
+}
+
+.segment-block {
+  & + .segment-block {
+    margin-top: 0.4rem;
+  }
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: white;
+  border: 1px solid #eef0f2;
+  border-left: 3px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+    transform: translateY(-1px);
+  }
+
+  .kpi-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #1f2937;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kpi-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .kpi-label {
+    margin-top: 0.1rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  &.accent-blue { border-left-color: #2563eb; .kpi-sub { color: #2563eb; } }
+  &.accent-green { border-left-color: #16a34a; .kpi-sub { color: #16a34a; } }
+  &.accent-red { border-left-color: #dc2626; .kpi-sub { color: #dc2626; } }
+  &.accent-indigo { border-left-color: #4f46e5; .kpi-sub { color: #4f46e5; } }
+  &.accent-orange { border-left-color: #ea580c; .kpi-sub { color: #ea580c; } }
+  &.accent-purple { border-left-color: #7c3aed; .kpi-sub { color: #7c3aed; } }
+  &.accent-teal { border-left-color: #0d9488; .kpi-sub { color: #0d9488; } }
+
+  // Light green fill to make the Conversions card (and the Funnel-reconciliation total) visually
+  // pop out from the surrounding white cards, since these are the "did we actually make money"
+  // numbers the Owner wants to spot at a glance rather than read closely.
+  &.conversions-highlight {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-left: 4px solid #16a34a;
+  }
+}
+
+// ============ Tables ============
+.table-scroll {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #eef0f2;
+}
+
+.data-table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+
+  thead tr {
+    background-color: #f9fafb;
+  }
+
+  th {
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid #f1f2f4;
+    color: #374151;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #fbfbfc;
+  }
+
+  tbody tr:hover {
+    background-color: #f0f7ff;
+  }
+
+  .col-num {
+    text-align: right;
+  }
+
+  .sortable {
+    cursor: pointer;
+    user-select: none;
+
+    &:hover {
+      color: #0369a1;
+    }
+  }
+}
+
+.clickable-rows tbody tr.linked {
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f0fdf4 !important;
+  }
+}
+
+// Registered Batch(es) can hold several tags for one person — stacked vertically (not a long
+// horizontal line) and capped in height with its own scrollbar so one busy cell never forces the
+// whole table wider or taller than it needs to be.
+th.batch-col, td.batch-col {
+  width: 160px;
+  max-width: 160px;
+  white-space: normal;
+}
+
+th.batch-col {
+  position: relative;
+}
+
+.th-filter-btn {
+  margin-left: 0.3rem;
+  padding: 0 0.3rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  color: #6b7280;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+
+  &.active {
+    background: #eef2ff;
+    border-color: #6366f1;
+    color: #4338ca;
+  }
+}
+
+.batch-filter-panel {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  z-index: 20;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  padding: 0.6rem;
+  width: 260px;
+  max-height: 280px;
+  overflow-y: auto;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  cursor: default;
+
+  .picker-actions {
+    display: flex;
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #f1f2f4;
+
+    button {
+      padding: 0.3rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: white;
+      color: #374151;
+      font-size: 0.75rem;
+      cursor: pointer;
+
+      &:hover {
+        background: #f3f4f6;
+      }
+    }
+  }
+
+  .picker-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.1rem;
+    font-size: 0.8rem;
+    color: #1f2937;
+    cursor: pointer;
+
+    input[type='checkbox'] {
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      accent-color: #15803d;
+      flex-shrink: 0;
+    }
+  }
+}
+
+.batch-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  max-height: 4.6rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+// A tag's own text ("7th Oct 2026 Swing Trading Masterclass") routinely runs longer than the
+// 160px column — setting only overflow-y above implicitly turns overflow-x into 'auto' too per the
+// CSS spec, which is what produced a horizontal scrollbar under every populated cell. Truncated with
+// an ellipsis instead (full text still available via the title attribute on hover).
+.batch-tag {
+  display: block;
+  max-width: 100%;
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+
+  &.badge-yes {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  &.badge-no {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+}
+
+// ============ Pagination ============
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+
+  .pagination-info {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+
+    select {
+      padding: 0.3rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+  }
+
+  .pagination-buttons {
+    display: flex;
+    gap: 0.5rem;
+
+    button {
+      padding: 0.35rem 0.9rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: white;
+      color: #374151;
+      font-size: 0.82rem;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        background: #f3f4f6;
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+// ============ Modals ============
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 10px;
+  width: 92%;
+  max-width: 760px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  background: white;
+
+  h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: #14532d;
+  }
+
+  .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      color: #1f2937;
+    }
+  }
+}
+
+.modal-body {
+  padding: 1.25rem 1.4rem 1.4rem;
+}
+
+// ============ Download format picker ============
+.download-modal {
+  max-width: 440px;
+}
+
+.download-tag-input {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.download-format-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.download-format-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #86efac;
+    background: #f9fdfa;
+  }
+
+  input[type='radio'] {
+    margin-top: 0.2rem;
+  }
+
+  strong {
+    display: block;
+    font-size: 0.9rem;
+    color: #1f2937;
+  }
+
+  .download-format-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.1rem;
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.btn-cancel {
+  padding: 0.5rem 1.1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+.detail-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.8rem;
+}
+
+.chat-log {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #eef0f2;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.chat-line {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  font-size: 0.83rem;
+  border-bottom: 1px solid #f7f7f8;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .chat-time {
+    flex-shrink: 0;
+    color: #9ca3af;
+    font-variant-numeric: tabular-nums;
+    width: 80px;
+  }
+
+  .chat-msg {
+    color: #374151;
+  }
+}
+
+// ============ Chat tab — person picker + transcript viewer ============
+.chat-browser {
+  display: flex;
+  gap: 1.25rem;
+  height: 65vh;
+  min-height: 420px;
+}
+
+.chat-people-panel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  flex-shrink: 0;
+
+  .identity-search-input {
+    max-width: none;
+    margin-bottom: 0.6rem;
+  }
+}
+
+.chat-people-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+}
+
+.chat-person-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-bottom: 1px solid #f1f2f4;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: #f9fafb;
+  }
+
+  &.active {
+    background: #f0fdf4;
+    box-shadow: inset 3px 0 0 #15803d;
+  }
+
+  .chat-person-name {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-person-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .chat-person-number {
+    font-size: 0.74rem;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-count-badge {
+    flex-shrink: 0;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.68rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}
+
+.chat-transcript-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #eef0f2;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  overflow: hidden;
+}
+
+.chat-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.95rem;
+}
+
+.chat-transcript-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #eef0f2;
+  flex-shrink: 0;
+}
+
+.chat-transcript-who {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+  color: #374151;
+
+  strong {
+    color: #1f2937;
+    font-size: 0.95rem;
+  }
+}
+
+.chat-keyword-input {
+  max-width: 260px;
+  margin-bottom: 0 !important;
+}
+
+.chat-transcript {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-right: 0.3rem;
+}
+
+.chat-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-self: flex-start;
+  max-width: 85%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 12px;
+  border-bottom-left-radius: 4px;
+  background: #f3f4f6;
+
+  .chat-bubble-time {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #9ca3af;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chat-bubble-text {
+    font-size: 0.88rem;
+    color: #1f2937;
+    line-height: 1.45;
+    word-break: break-word;
+
+    ::ng-deep mark {
+      background: #fde047;
+      color: #713f12;
+      border-radius: 3px;
+      padding: 0 0.1rem;
+    }
+  }
+
+  &:hover {
+    background: #eef1ee;
+  }
+}
