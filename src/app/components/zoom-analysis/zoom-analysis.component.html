@@ -82,61 +82,64 @@
           </div>
 
           <div class="segment-block" *ngFor="let seg of segmentSections">
-            <div class="metric-subsection-label">{{ seg.title }}</div>
+            <div class="metric-subsection-label">
+              {{ seg.title }}
+              <span class="view-people-hint">👥 Click a card to view those people</span>
+            </div>
             <div class="kpi-grid">
-              <div class="kpi-card accent-blue" [title]="seg.totalTitle">
+              <div class="kpi-card accent-blue clickable-card" [title]="seg.totalTitle" (click)="openSegmentMembers(seg.key, seg.title, 'total', 'Total Zoom Registered')">
                 <span class="kpi-value">{{ seg.data.totalRegistered }}</span>
                 <span class="kpi-sub">{{ pctOfTotal(seg.data.totalRegistered) }}% of {{ report.cards.totalRegistered }}</span>
                 <span class="kpi-label">Total Zoom Registered</span>
               </div>
-              <div class="kpi-card accent-green" [title]="'Attended at least ' + attendedThresholdMin + ' minutes'">
+              <div class="kpi-card accent-green clickable-card" [title]="'Attended at least ' + attendedThresholdMin + ' minutes'" (click)="openSegmentMembers(seg.key, seg.title, 'attended', 'Attended (≥ ' + attendedThresholdMin + 'm)')">
                 <span class="kpi-value">{{ seg.data.attended.count }}</span>
                 <span class="kpi-sub">{{ seg.data.attended.pct }}% of {{ seg.data.totalRegistered }}</span>
                 <span class="kpi-label">Attended (≥ {{ attendedThresholdMin }}m)</span>
               </div>
-              <div class="kpi-card accent-purple" title="Total chat messages sent by this segment, regardless of how long they attended">
+              <div class="kpi-card accent-purple clickable-card" title="Total chat messages sent by this segment, regardless of how long they attended. Click to see who chatted, most active first." (click)="openSegmentMembers(seg.key, seg.title, 'totalChats', 'People Who Chatted')">
                 <span class="kpi-value">{{ seg.data.totalChats }}</span>
                 <span class="kpi-label">Total Chats</span>
               </div>
-              <div class="kpi-card accent-purple" title="Average total time among this segment's attended population only">
+              <div class="kpi-card accent-purple clickable-card" title="Average total time among this segment's attended population only" (click)="openSegmentMembers(seg.key, seg.title, 'attended', 'Attended (≥ ' + attendedThresholdMin + 'm)')">
                 <span class="kpi-value">{{ formatMin(seg.data.avgAttendedDurationMin) }}</span>
                 <span class="kpi-label">Avg Time (Attended)</span>
               </div>
-              <div class="kpi-card accent-teal" title="Average number of times an attended person in this segment left and rejoined">
+              <div class="kpi-card accent-teal clickable-card" title="Average number of times an attended person in this segment left and rejoined" (click)="openSegmentMembers(seg.key, seg.title, 'attended', 'Attended (≥ ' + attendedThresholdMin + 'm)')">
                 <span class="kpi-value">{{ seg.data.avgRejoinsAttended ?? '—' }}</span>
                 <span class="kpi-label">Avg Rejoins (Attended)</span>
               </div>
-              <div class="kpi-card accent-blue" title="The single moment the most people from this segment were in the room at once">
+              <div class="kpi-card accent-blue clickable-card" title="The single moment the most people from this segment were in the room at once. Click to see exactly who was in the room at that moment." (click)="openSegmentMembers(seg.key, seg.title, 'peakConcurrent', 'Peak Concurrent')">
                 <span class="kpi-value">{{ seg.data.peakConcurrent.count }}</span>
                 <span class="kpi-sub" *ngIf="seg.data.peakConcurrent.atTime">at {{ seg.data.peakConcurrent.atTime | date: 'h:mm a' }}</span>
                 <span class="kpi-label">Peak Concurrent</span>
               </div>
-              <div class="kpi-card accent-orange" title="Of this segment's attendees, how many stayed at least until the session's halfway point">
+              <div class="kpi-card accent-orange clickable-card" title="Of this segment's attendees, how many stayed at least until the session's halfway point" (click)="openSegmentMembers(seg.key, seg.title, 'stayedTillMiddle', 'Stayed Till Middle')">
                 <span class="kpi-value">{{ seg.data.stayedTillMiddle.count }}</span>
                 <span class="kpi-sub">{{ seg.data.stayedTillMiddle.pct }}% of {{ seg.data.attended.count }}</span>
                 <span class="kpi-label">Stayed Till Middle</span>
               </div>
-              <div class="kpi-card accent-red" title="Of this segment's attendees, how many stayed at least until the 2-hour mark (typically when the pitch happens)">
+              <div class="kpi-card accent-red clickable-card" title="Of this segment's attendees, how many stayed at least until the 2-hour mark (typically when the pitch happens)" (click)="openSegmentMembers(seg.key, seg.title, 'stayedTillEnd2hr', 'Stayed Till 2hr Mark')">
                 <span class="kpi-value">{{ seg.data.stayedTillEnd2hr === null ? 'N/A' : seg.data.stayedTillEnd2hr.count }}</span>
                 <span class="kpi-sub" *ngIf="seg.data.stayedTillEnd2hr">{{ seg.data.stayedTillEnd2hr.pct }}% of {{ seg.data.attended.count }}</span>
                 <span class="kpi-label">Stayed Till 2hr Mark</span>
               </div>
-              <div class="kpi-card accent-red" *ngIf="seg.data.stayedTill150Min" title="Only shown when this segment's own average attended time is above 2.5hrs">
+              <div class="kpi-card accent-red clickable-card" *ngIf="seg.data.stayedTill150Min" title="Only shown when this segment's own average attended time is above 2.5hrs" (click)="openSegmentMembers(seg.key, seg.title, 'stayedTill150Min', 'Stayed Till 2.5hr Mark')">
                 <span class="kpi-value">{{ seg.data.stayedTill150Min.count }}</span>
                 <span class="kpi-sub">{{ seg.data.stayedTill150Min.pct }}% of {{ seg.data.attended.count }}</span>
                 <span class="kpi-label">Stayed Till 2.5hr Mark</span>
               </div>
-              <div class="kpi-card accent-red" *ngIf="seg.data.stayedTill180Min" title="Only shown when this segment's own average attended time is above 2.5hrs">
+              <div class="kpi-card accent-red clickable-card" *ngIf="seg.data.stayedTill180Min" title="Only shown when this segment's own average attended time is above 2.5hrs" (click)="openSegmentMembers(seg.key, seg.title, 'stayedTill180Min', 'Stayed Till 3hr Mark')">
                 <span class="kpi-value">{{ seg.data.stayedTill180Min.count }}</span>
                 <span class="kpi-sub">{{ seg.data.stayedTill180Min.pct }}% of {{ seg.data.attended.count }}</span>
                 <span class="kpi-label">Stayed Till 3hr Mark</span>
               </div>
-              <div class="kpi-card accent-green conversions-highlight" *ngIf="seg.key !== 'alreadyPaid'" title="A Full Paid sheet row (matched by mobile or email) dated to THIS exact webinar's date — a genuine new conversion from this segment, not someone already paid before it">
+              <div class="kpi-card accent-green conversions-highlight clickable-card" *ngIf="seg.key !== 'alreadyPaid'" title="A Full Paid sheet row (matched by mobile or email) dated to THIS exact webinar's date — a genuine new conversion from this segment, not someone already paid before it" (click)="openSegmentMembers(seg.key, seg.title, 'conversions', 'Conversions (Paid Live Today)')">
                 <span class="kpi-value">{{ seg.data.conversions.count }}</span>
                 <span class="kpi-sub">{{ formatMin(seg.data.conversions.avgAttendedMin) }} avg attended</span>
                 <span class="kpi-label">Conversions (Paid Live Today)</span>
               </div>
-              <div class="kpi-card accent-orange" *ngIf="seg.data.reRegisteredToday" title="Of this segment (whose EARLIEST registration was for an earlier webinar), how many also show a registration-sheet row for THIS exact webinar — i.e. they registered again rather than just resurfacing to attend">
+              <div class="kpi-card accent-orange clickable-card" *ngIf="seg.data.reRegisteredToday" title="Of this segment (whose EARLIEST registration was for an earlier webinar), how many also show a registration-sheet row for THIS exact webinar — i.e. they registered again rather than just resurfacing to attend" (click)="openSegmentMembers(seg.key, seg.title, 'reRegisteredToday', 'Re-registered for This Webinar')">
                 <span class="kpi-value">{{ seg.data.reRegisteredToday.count }}</span>
                 <span class="kpi-sub">{{ seg.data.reRegisteredToday.pct }}% of {{ seg.data.totalRegistered }}</span>
                 <span class="kpi-label">Re-registered for This Webinar</span>
@@ -591,6 +594,79 @@
             </div>
           </div>
           <div *ngIf="detailData.chat.length === 0" class="no-data">No chat messages.</div>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Segment member drill-down (clicking a segment's KPI cards) ============ -->
+  <div class="modal-overlay" *ngIf="showSegmentModal" (click)="closeSegmentModal()">
+    <div class="modal-content segment-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>👥 {{ segmentModalTitle }}</h2>
+        <button class="btn-close" (click)="closeSegmentModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <span class="section-note">ℹ️ Signup Date and Referral Code come from their Sigma Scanner account. Not signed up to Sigma Scanner → Signup Date shows "nil". Referral Code shows their real code when signed up (or "nil" if that field is blank on their account); when NOT signed up, it instead names whichever other source is the only record we have of them — a tracked webinar registration, the Paid sheet, or "Zoom" if nothing else exists at all.</span>
+
+        <input
+          type="text"
+          class="identity-search-input"
+          placeholder="Search by name, number, email or signed up (yes/no)"
+          [(ngModel)]="segmentMembersSearchInput"
+          (ngModelChange)="onSegmentMembersSearchInput()"
+        >
+
+        <div *ngIf="segmentMembersLoading" class="loading-inline">Loading...</div>
+        <div *ngIf="segmentMembersError" class="error">{{ segmentMembersError }}</div>
+
+        <ng-container *ngIf="!segmentMembersLoading && !segmentMembersError && segmentMembersTable">
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="sortable" (click)="toggleSegmentMembersSort('name')">Name{{ segmentMembersSortBy === 'name' ? (segmentMembersSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSegmentMembersSort('number')">Number{{ segmentMembersSortBy === 'number' ? (segmentMembersSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th>Email</th>
+                  <th class="sortable" (click)="toggleSegmentMembersSort('signedUp')">Signed Up (Sigma Scanner){{ segmentMembersSortBy === 'signedUp' ? (segmentMembersSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSegmentMembersSort('signupDate')">Signup Date{{ segmentMembersSortBy === 'signupDate' ? (segmentMembersSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSegmentMembersSort('referralCode')">Referral Code{{ segmentMembersSortBy === 'referralCode' ? (segmentMembersSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="sortable" (click)="toggleSegmentMembersSort('attended')">Attended{{ segmentMembersSortBy === 'attended' ? (segmentMembersSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                  <th class="col-num sortable" (click)="toggleSegmentMembersSort('totalMin')">Total Time{{ segmentMembersSortBy === 'totalMin' ? (segmentMembersSortDir === 'asc' ? ' ▲' : ' ▼') : '' }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of segmentMembersTable.rows">
+                  <td>{{ r.name }}</td>
+                  <td>{{ r.number }}</td>
+                  <td>{{ r.email }}</td>
+                  <td><span class="badge" [class.badge-yes]="r.signedUp" [class.badge-no]="!r.signedUp">{{ r.signedUp ? 'Yes' : 'No' }}</span></td>
+                  <td>{{ r.signupDate ? (r.signupDate | date: 'd MMM y') : 'nil' }}</td>
+                  <td [class.referral-source-label]="isReferralSourceLabel(r.referralCode)">{{ r.referralCode || 'nil' }}</td>
+                  <td><span class="badge" [class.badge-yes]="r.attended" [class.badge-no]="!r.attended">{{ r.attended ? 'Yes' : 'No' }}</span></td>
+                  <td class="col-num">{{ formatMin(r.totalMin) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div *ngIf="segmentMembersTable.rows.length === 0" class="no-data">Nobody in this segment matches that search.</div>
+
+          <div class="pagination" *ngIf="segmentMembersTable.total > 0">
+            <span class="pagination-info">Page {{ segmentMembersTable.page }} of {{ segmentMembersTotalPages }} ({{ segmentMembersTable.total }} people)</span>
+            <div class="pagination-controls">
+              <select [ngModel]="segmentMembersPageSize" (ngModelChange)="onSegmentMembersPageSizeChange($event)">
+                <option [ngValue]="10">10 / page</option>
+                <option [ngValue]="20">20 / page</option>
+                <option [ngValue]="50">50 / page</option>
+                <option [ngValue]="100">100 / page</option>
+                <option [ngValue]="200">200 / page</option>
+              </select>
+              <div class="pagination-buttons">
+                <button type="button" (click)="goToSegmentMembersPage(segmentMembersTable.page - 1)" [disabled]="segmentMembersTable.page <= 1">‹ Prev</button>
+                <button type="button" (click)="goToSegmentMembersPage(segmentMembersTable.page + 1)" [disabled]="segmentMembersTable.page >= segmentMembersTotalPages">Next ›</button>
+              </div>
+            </div>
+          </div>
         </ng-container>
       </div>
     </div>

@@ -196,6 +196,10 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/attendee/${id}/${encodeURIComponent(email)}`);
   }
 
+  getWebinarSegmentMembers(id: string, segmentKey: string, metric: string, attendedThresholdMin: number, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc', search?: string): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/segment-members/${id}/${segmentKey}`, { params: this.buildParams({ metric, attendedThresholdMin, page, pageSize, sortBy, sortDir, search }) });
+  }
+
   getWebinarKeywordMatches(id: string, keyword: string, page: number, pageSize: number, sortBy?: string, sortDir?: 'asc' | 'desc'): Observable<APIResponse<any>> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-analysis/keyword/${id}`, { params: this.buildParams({ keyword, page, pageSize, sortBy, sortDir }) });
   }
@@ -244,6 +248,10 @@ export class ApiService {
       params: this.buildParams({ category, sortBy, sortDir, search, format, tag }),
       responseType: 'blob',
     });
+  }
+
+  getWebinarMomentumAnalytics(): Observable<APIResponse<any>> {
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-momentum-analytics/report`);
   }
 
   getEmandateTable(date: string): Observable<APIResponse<any>> {

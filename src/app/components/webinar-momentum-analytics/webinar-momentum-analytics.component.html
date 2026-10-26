@@ -1,0 +1,227 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Webinar Analytics</h1>
+    <p class="subtitle">Momentum webinar conversion &amp; attendance trends — webinar-wise, month-wise and quarter-wise</p>
+  </div>
+
+  <div *ngIf="loading" class="loading-inline">Loading analytics...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error && report">
+    <div class="gap-banner" *ngIf="report.dataGaps.length > 0">
+      <span class="gap-icon">⚠</span>
+      <span>
+        No attendance data for
+        <strong *ngFor="let g of report.dataGaps; let last = last">{{ g.label }}<ng-container *ngIf="!last">, </ng-container></strong>
+        — {{ report.dataGaps[0].reason }}.
+      </span>
+    </div>
+
+    <!-- ============ Summary card ============ -->
+    <section class="segment-card summary-card">
+      <h2 class="section-title">
+        This Month{{ report.currentMonth ? ' — ' + report.currentMonth.label : '' }}
+        <button type="button" class="refresh-btn" (click)="load()" [disabled]="loading" title="Re-fetch the latest sheet + Zoom data">
+          <span [class.spinning]="loading">🔄</span> Refresh
+        </button>
+      </h2>
+
+      <div class="kpi-grid" *ngIf="report.currentMonth; else noCurrentMonth">
+        <div class="kpi-card accent-blue">
+          <span class="kpi-value">{{ formatPct(report.currentMonth.convByRegistration) }}</span>
+          <span class="kpi-label">Conversion by Registration</span>
+        </div>
+        <div class="kpi-card accent-purple">
+          <span class="kpi-value">{{ formatPct(report.currentMonth.convBySales) }}</span>
+          <span class="kpi-label">Conversion by Sales</span>
+        </div>
+        <div class="kpi-card accent-green conversions-highlight">
+          <span class="kpi-value">{{ formatPct(report.currentMonth.attendance) }}</span>
+          <span class="kpi-label">Attendance (Curr Registered)</span>
+        </div>
+        <div class="kpi-card accent-indigo">
+          <span class="kpi-value">{{ report.currentMonth.webinarCount }}</span>
+          <span class="kpi-label">Webinars This Month</span>
+        </div>
+      </div>
+      <ng-template #noCurrentMonth>
+        <div class="no-data">No webinars recorded yet for this month.</div>
+      </ng-template>
+
+      <!-- Quarter comparison -->
+      <div class="quarter-compare" *ngIf="report.currentQuarter && report.previousQuarter">
+        <div class="quarter-compare-header">
+          <span class="quarter-compare-title">{{ report.currentQuarter.label }} vs {{ report.previousQuarter.label }}</span>
+          <span
+            class="methodology-badge"
+            *ngIf="attendanceMethodologyChanged"
+            title="Attendance uses a different formula in these two quarters — sheet-based (Max Joined ÷ Groupcount) before 3 Oct 2026, live Zoom data (Attended ÷ sheet Registered) from 3 Oct onward. The Attendance comparison below isn't apples-to-apples."
+          >
+            ⚠ Attendance basis changed this quarter
+          </span>
+        </div>
+
+        <div class="compare-grid">
+          <div class="compare-row">
+            <span class="compare-label">Conversion by Registration</span>
+            <span class="compare-current">{{ formatPct(report.currentQuarter.convByRegistration) }}</span>
+            <span
+              class="compare-delta"
+              *ngIf="delta(report.currentQuarter.convByRegistration, report.previousQuarter.convByRegistration) as d"
+              [class.positive]="d >= 0"
+              [class.negative]="d < 0"
+            >
+              {{ d >= 0 ? '▲' : '▼' }} {{ (d >= 0 ? d : -d).toFixed(1) }}pp
+            </span>
+            <span class="compare-prev">vs {{ formatPct(report.previousQuarter.convByRegistration) }} last quarter</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-label">Conversion by Sales</span>
+            <span class="compare-current">{{ formatPct(report.currentQuarter.convBySales) }}</span>
+            <span
+              class="compare-delta"
+              *ngIf="delta(report.currentQuarter.convBySales, report.previousQuarter.convBySales) as d"
+              [class.positive]="d >= 0"
+              [class.negative]="d < 0"
+            >
+              {{ d >= 0 ? '▲' : '▼' }} {{ (d >= 0 ? d : -d).toFixed(1) }}pp
+            </span>
+            <span class="compare-prev">vs {{ formatPct(report.previousQuarter.convBySales) }} last quarter</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-label">Attendance (Curr Registered)</span>
+            <span class="compare-current">{{ formatPct(report.currentQuarter.attendance) }}</span>
+            <span
+              class="compare-delta"
+              *ngIf="delta(report.currentQuarter.attendance, report.previousQuarter.attendance) as d"
+              [class.positive]="d >= 0"
+              [class.negative]="d < 0"
+            >
+              {{ d >= 0 ? '▲' : '▼' }} {{ (d >= 0 ? d : -d).toFixed(1) }}pp
+            </span>
+            <span class="compare-prev">vs {{ formatPct(report.previousQuarter.attendance) }} last quarter</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Interactive table ============ -->
+    <section class="segment-card">
+      <div class="view-toggle-row">
+        <div class="view-toggle">
+          <button type="button" class="view-toggle-btn" [class.active]="viewMode === 'webinar'" (click)="setView('webinar')">Webinar-wise</button>
+          <button type="button" class="view-toggle-btn" [class.active]="viewMode === 'month'" (click)="setView('month')">Month-wise</button>
+          <button type="button" class="view-toggle-btn" [class.active]="viewMode === 'quarter'" (click)="setView('quarter')">Quarter-wise</button>
+        </div>
+        <div class="year-filter">
+          <span class="filter-label">Year</span>
+          <select [ngModel]="selectedYear" (ngModelChange)="setYear($event)">
+            <option value="all">All Years</option>
+            <option *ngFor="let y of availableYears" [value]="y">{{ y }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Webinar-wise -->
+      <div class="table-scroll" *ngIf="viewMode === 'webinar'">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sortable" (click)="toggleWebinarSort('date')">Date{{ sortArrow('date', webinarSortBy, webinarSortDir) }}</th>
+              <th class="sortable" (click)="toggleWebinarSort('batch')">Batch{{ sortArrow('batch', webinarSortBy, webinarSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleWebinarSort('registered')">Registered{{ sortArrow('registered', webinarSortBy, webinarSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleWebinarSort('total')">Paid (Total){{ sortArrow('total', webinarSortBy, webinarSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleWebinarSort('convByRegistration')">Conv. by Reg.{{ sortArrow('convByRegistration', webinarSortBy, webinarSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleWebinarSort('convBySales')">Conv. by Sales{{ sortArrow('convBySales', webinarSortBy, webinarSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleWebinarSort('attendance')">Attendance (Curr Registered){{ sortArrow('attendance', webinarSortBy, webinarSortDir) }}</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let w of sortedWebinarRows">
+              <td>{{ w.label }}</td>
+              <td>{{ w.batch }}</td>
+              <td class="col-num">{{ w.registered }}</td>
+              <td class="col-num">{{ w.total }}</td>
+              <td class="col-num">{{ w.convByRegistration }}%</td>
+              <td class="col-num">{{ w.convBySales }}%</td>
+              <td class="col-num">
+                <span [title]="w.attendanceNote">{{ formatPct(w.attendance) }}</span>
+                <span
+                  class="source-badge"
+                  [class.source-live]="w.attendanceSource === 'live'"
+                  [class.source-sheet]="w.attendanceSource === 'sheet'"
+                  [class.source-gap]="w.attendanceSource === 'unavailable'"
+                  [title]="w.attendanceNote"
+                >{{ sourceLabel(w.attendanceSource) }}</span>
+              </td>
+              <td class="remarks-cell">{{ w.remarks || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Month-wise -->
+      <div class="table-scroll" *ngIf="viewMode === 'month'">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sortable" (click)="toggleMonthSort('label')">Month{{ sortArrow('label', monthSortBy, monthSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleMonthSort('webinarCount')">Webinars{{ sortArrow('webinarCount', monthSortBy, monthSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleMonthSort('totalRegistered')">Total Registered{{ sortArrow('totalRegistered', monthSortBy, monthSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleMonthSort('totalPaid')">Total Paid{{ sortArrow('totalPaid', monthSortBy, monthSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleMonthSort('convByRegistration')">Conv. by Reg.{{ sortArrow('convByRegistration', monthSortBy, monthSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleMonthSort('convBySales')">Conv. by Sales{{ sortArrow('convBySales', monthSortBy, monthSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleMonthSort('attendance')">Attendance (Curr Registered){{ sortArrow('attendance', monthSortBy, monthSortDir) }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of sortedMonthRows">
+              <td>{{ m.label }}</td>
+              <td class="col-num">{{ m.webinarCount }}</td>
+              <td class="col-num">{{ m.totalRegistered }}</td>
+              <td class="col-num">{{ m.totalPaid }}</td>
+              <td class="col-num">{{ m.convByRegistration }}%</td>
+              <td class="col-num">{{ m.convBySales }}%</td>
+              <td class="col-num">
+                {{ formatPct(m.attendance) }}
+                <span class="methodology-dot" *ngIf="m.spansAttendanceCutover" title="This month mixes sheet-based and live-Zoom-based attendance — the two formulas changed mid-month">⚠</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Quarter-wise -->
+      <div class="table-scroll" *ngIf="viewMode === 'quarter'">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sortable" (click)="toggleQuarterSort('label')">Quarter{{ sortArrow('label', quarterSortBy, quarterSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleQuarterSort('monthCount')">Months{{ sortArrow('monthCount', quarterSortBy, quarterSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleQuarterSort('totalRegistered')">Total Registered{{ sortArrow('totalRegistered', quarterSortBy, quarterSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleQuarterSort('totalPaid')">Total Paid{{ sortArrow('totalPaid', quarterSortBy, quarterSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleQuarterSort('convByRegistration')">Conv. by Reg.{{ sortArrow('convByRegistration', quarterSortBy, quarterSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleQuarterSort('convBySales')">Conv. by Sales{{ sortArrow('convBySales', quarterSortBy, quarterSortDir) }}</th>
+              <th class="col-num sortable" (click)="toggleQuarterSort('attendance')">Attendance (Curr Registered){{ sortArrow('attendance', quarterSortBy, quarterSortDir) }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let q of sortedQuarterRows">
+              <td>{{ q.label }}</td>
+              <td class="col-num">{{ q.monthCount }}</td>
+              <td class="col-num">{{ q.totalRegistered }}</td>
+              <td class="col-num">{{ q.totalPaid }}</td>
+              <td class="col-num">{{ q.convByRegistration }}%</td>
+              <td class="col-num">{{ q.convBySales }}%</td>
+              <td class="col-num">
+                {{ formatPct(q.attendance) }}
+                <span class="methodology-dot" *ngIf="q.spansAttendanceCutover" title="This quarter mixes sheet-based and live-Zoom-based attendance months — the two formulas changed mid-quarter">⚠</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-container>
+</div>

@@ -119,6 +119,17 @@ interface PagedResult<T> {
   pageSize: number;
 }
 
+interface SegmentMemberRow {
+  email: string;
+  name: string;
+  number: string;
+  signedUp: boolean;
+  signupDate: string | null;
+  referralCode: string | null;
+  attended: boolean;
+  totalMin: number;
+}
+
 interface AttendeeDetail {
   email: string;
   name: string;
@@ -223,6 +234,20 @@ export class ZoomAnalysisComponent implements OnInit, OnDestroy {
   detailError: string | null = null;
   detailData: AttendeeDetail | null = null;
 
+  // ============ Segment member drill-down (clicking into a segment's KPI cards) ============
+  showSegmentModal = false;
+  segmentModalKey: string | null = null;
+  segmentModalMetric: string = 'total';
+  segmentModalTitle = '';
+  segmentMembersTable: PagedResult<SegmentMemberRow> | null = null;
+  segmentMembersLoading = false;
+  segmentMembersError: string | null = null;
+  segmentMembersPageSize = 20;
+  segmentMembersSortBy: string | null = null;
+  segmentMembersSortDir: SortDir = 'desc';
+  segmentMembersSearchInput = '';
+  private segmentMembersSearch$ = new Subject<void>();
+
   // ============ Download format picker (shared by every download button on this tab) ============
   showDownloadModal = false;
   downloadKind: 'main' | 'notJoined' | 'notRegistered' | 'keyword' | null = null;
@@ -239,6 +264,7 @@ export class ZoomAnalysisComponent implements OnInit, OnDestroy {
     this.mainSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadMainTable(1));
     this.notJoinedSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadNotJoinedTable(1));
     this.notRegisteredSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadNotRegisteredTable(1));
+    this.segmentMembersSearch$.pipe(debounceTime(400), takeUntil(this.destroy$)).subscribe(() => this.loadSegmentMembers(1));
   }
 
   ngOnDestroy() {
@@ -714,6 +740,93 @@ export class ZoomAnalysisComponent implements OnInit, OnDestroy {
 
   closeDetail() {
     this.showDetailModal = false;
+  }
+
+  // ============ Segment member drill-down ============
+  // Each card in a segment opens the people behind THAT card's own number — "Attended" opens the
+  // 32 who attended, "Stayed Till Middle" opens the 27 who did, etc. — not the whole segment, so
+  // every click site passes its own metric key alongside the segment key.
+  openSegmentMembers(segmentKey: string, segmentTitle: string, metric: string, metricLabel: string) {
+    if (!this.selectedWebinarId) return;
+    this.segmentModalKey = segmentKey;
+    this.segmentModalMetric = metric;
+    this.segmentModalTitle = `${segmentTitle} — ${metricLabel}`;
+    this.segmentMembersSearchInput = '';
+    this.segmentMembersSortBy = null;
+    this.segmentMembersSortDir = 'desc';
+    this.showSegmentModal = true;
+    this.loadSegmentMembers(1);
+  }
+
+  closeSegmentModal() {
+    this.showSegmentModal = false;
+    this.segmentModalKey = null;
+    this.segmentMembersTable = null;
+  }
+
+  loadSegmentMembers(page: number) {
+    if (!this.selectedWebinarId || !this.segmentModalKey) return;
+    this.segmentMembersLoading = true;
+    this.segmentMembersError = null;
+    this.apiService
+      .getWebinarSegmentMembers(
+        this.selectedWebinarId,
+        this.segmentModalKey,
+        this.segmentModalMetric,
+        this.attendedThresholdMin,
+        page,
+        this.segmentMembersPageSize,
+        this.segmentMembersSortBy || undefined,
+        this.segmentMembersSortDir,
+        this.segmentMembersSearchInput.trim() || undefined
+      )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) this.segmentMembersTable = response.data;
+          else this.segmentMembersError = response.error || 'Failed to load this segment\'s members';
+          this.segmentMembersLoading = false;
+        },
+        error: (err) => {
+          this.segmentMembersError = err?.error?.error || 'Failed to load this segment\'s members';
+          this.segmentMembersLoading = false;
+        },
+      });
+  }
+
+  get segmentMembersTotalPages(): number {
+    if (!this.segmentMembersTable) return 1;
+    return Math.max(1, Math.ceil(this.segmentMembersTable.total / this.segmentMembersTable.pageSize));
+  }
+
+  goToSegmentMembersPage(page: number) {
+    if (page < 1 || page > this.segmentMembersTotalPages) return;
+    this.loadSegmentMembers(page);
+  }
+
+  onSegmentMembersPageSizeChange(size: number) {
+    this.segmentMembersPageSize = Number(size);
+    this.loadSegmentMembers(1);
+  }
+
+  toggleSegmentMembersSort(field: string) {
+    if (this.segmentMembersSortBy === field) this.segmentMembersSortDir = this.segmentMembersSortDir === 'asc' ? 'desc' : 'asc';
+    else {
+      this.segmentMembersSortBy = field;
+      this.segmentMembersSortDir = 'asc';
+    }
+    this.loadSegmentMembers(1);
+  }
+
+  onSegmentMembersSearchInput() {
+    this.segmentMembersSearch$.next();
+  }
+
+  // "Zoom (no other record)" etc. are source labels, not real Sigma Scanner referral codes — shown
+  // in a muted/italic style in the template based on this, so it reads as provenance rather than a
+  // promo code someone could mistake for an actual referral.
+  isReferralSourceLabel(code: string | null): boolean {
+    return code === 'Webinar Registration Sheet' || code === 'Paid Sheet' || code === 'Zoom (no other record)';
   }
 
   // ============ Display helpers ============

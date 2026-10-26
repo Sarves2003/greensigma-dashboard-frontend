@@ -1,16 +1,35 @@
 <div class="main-tab-shell">
-  <div
-    class="main-tab-switcher"
-    *ngIf="authService.hasPermission(permissions.webinarAnalysisMain) && authService.hasPermission(permissions.webinarAnalysisRegistrations)"
-  >
-    <button type="button" class="main-tab-btn" [class.active]="activeMainTab === 'zoom'" (click)="setMainTab('zoom')">
+  <div class="main-tab-switcher" *ngIf="showSwitcher">
+    <button
+      type="button"
+      class="main-tab-btn"
+      *ngIf="authService.hasPermission(permissions.webinarAnalysisMain)"
+      [class.active]="activeMainTab === 'zoom'"
+      (click)="setMainTab('zoom')"
+    >
       🎥 Zoom Analysis
     </button>
-    <button type="button" class="main-tab-btn" [class.active]="activeMainTab === 'registrations'" (click)="setMainTab('registrations')">
+    <button
+      type="button"
+      class="main-tab-btn"
+      *ngIf="authService.hasPermission(permissions.webinarAnalysisRegistrations)"
+      [class.active]="activeMainTab === 'registrations'"
+      (click)="setMainTab('registrations')"
+    >
       🧾 Webinar Registrations
+    </button>
+    <button
+      type="button"
+      class="main-tab-btn"
+      *ngIf="authService.hasPermission(permissions.webinarAnalysisAnalytics)"
+      [class.active]="activeMainTab === 'analytics'"
+      (click)="setMainTab('analytics')"
+    >
+      📈 Analytics
     </button>
   </div>
 
   <app-zoom-analysis *ngIf="activeMainTab === 'zoom' && authService.hasPermission(permissions.webinarAnalysisMain)"></app-zoom-analysis>
   <app-webinar-registrations *ngIf="activeMainTab === 'registrations' && authService.hasPermission(permissions.webinarAnalysisRegistrations)"></app-webinar-registrations>
+  <app-webinar-momentum-analytics *ngIf="activeMainTab === 'analytics' && authService.hasPermission(permissions.webinarAnalysisAnalytics)"></app-webinar-momentum-analytics>
 </div>
