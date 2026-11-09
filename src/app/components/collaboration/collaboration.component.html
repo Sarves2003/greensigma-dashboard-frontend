@@ -1,0 +1,48 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Collaboration</h1>
+    <p class="subtitle">Influencer &amp; affiliate pipeline — track outreach in Followup, promote to Live once onboarded</p>
+  </div>
+
+  <div class="main-tab-switcher" *ngIf="showSwitcher">
+    <button
+      type="button"
+      class="main-tab-btn"
+      *ngIf="authService.hasPermission(permissions.collaborationFollowup)"
+      [class.active]="activeSubTab === 'followup'"
+      (click)="setSubTab('followup')"
+    >
+      📋 Followup List
+    </button>
+    <button
+      type="button"
+      class="main-tab-btn"
+      *ngIf="authService.hasPermission(permissions.collaborationLive)"
+      [class.active]="activeSubTab === 'live'"
+      (click)="setSubTab('live')"
+    >
+      🟢 Live List
+    </button>
+    <button
+      type="button"
+      class="main-tab-btn"
+      *ngIf="authService.hasPermission(permissions.collaborationSummary)"
+      [class.active]="activeSubTab === 'summary'"
+      (click)="setSubTab('summary')"
+    >
+      📊 Summary
+    </button>
+  </div>
+
+  <app-collaboration-list
+    *ngIf="activeSubTab === 'followup' && authService.hasPermission(permissions.collaborationFollowup)"
+    stage="followup"
+  ></app-collaboration-list>
+  <app-collaboration-list
+    *ngIf="activeSubTab === 'live' && authService.hasPermission(permissions.collaborationLive)"
+    stage="live"
+  ></app-collaboration-list>
+  <app-collaboration-summary
+    *ngIf="activeSubTab === 'summary' && authService.hasPermission(permissions.collaborationSummary)"
+  ></app-collaboration-summary>
+</div>

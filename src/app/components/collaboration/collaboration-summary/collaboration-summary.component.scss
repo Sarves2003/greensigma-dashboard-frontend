@@ -1,0 +1,144 @@
+.loading-inline {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.error {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  margin: 1rem 0;
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.no-data {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: white;
+  border: 1px solid #eef0f2;
+  border-left: 4px solid #d1d5db;
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .kpi-icon {
+    font-size: 1.3rem;
+    margin-bottom: 0.1rem;
+  }
+
+  .kpi-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .kpi-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #1f2937;
+    font-variant-numeric: tabular-nums;
+
+    &.kpi-value-muted {
+      color: #d1d5db;
+    }
+  }
+
+  .kpi-sub {
+    font-size: 0.78rem;
+    color: #6b7280;
+
+    &.breakdown {
+      font-weight: 600;
+      color: #374151;
+    }
+
+    &.hint {
+      font-style: italic;
+      color: #9ca3af;
+    }
+  }
+
+  &.accent-green { border-left-color: #16a34a; }
+  &.accent-blue { border-left-color: #2563eb; }
+  &.accent-amber { border-left-color: #d97706; }
+  &.accent-purple { border-left-color: #7c3aed; }
+}
+
+.section-title {
+  font-size: 1.1rem;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+
+  thead tr {
+    background-color: #f9fafb;
+  }
+
+  th {
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  td {
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid #f1f2f4;
+    color: #374151;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #fbfbfc;
+  }
+
+  tbody tr:hover {
+    background-color: #f0f7ff;
+  }
+
+  .col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}

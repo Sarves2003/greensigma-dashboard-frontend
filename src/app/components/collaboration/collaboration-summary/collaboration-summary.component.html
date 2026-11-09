@@ -1,0 +1,80 @@
+<div class="collab-summary">
+  <div *ngIf="loading" class="loading-inline">Loading summary...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error">
+    <div class="kpi-grid">
+      <div class="kpi-card accent-green">
+        <span class="kpi-icon">🟢</span>
+        <span class="kpi-label">Active Collaborators</span>
+        <span class="kpi-value">{{ activeCount }}</span>
+        <span class="kpi-sub breakdown" *ngIf="activeTypeBreakdown.length > 0">
+          <span *ngFor="let b of activeTypeBreakdown; let last = last">{{ b.count }} {{ b.label }}{{ last ? '' : ' · ' }}</span>
+        </span>
+        <span class="kpi-sub" *ngIf="activeTypeBreakdown.length === 0">Live List — all onboarded collaborators</span>
+      </div>
+
+      <div class="kpi-card accent-blue">
+        <span class="kpi-icon">📋</span>
+        <span class="kpi-label">In Lineup (Followup)</span>
+        <span class="kpi-value">{{ lineupCount }}</span>
+        <span class="kpi-sub breakdown" *ngIf="lineupStatusBreakdown.length > 0">
+          <span *ngFor="let b of lineupStatusBreakdown; let last = last">{{ b.count }} {{ b.label }}{{ last ? '' : ' · ' }}</span>
+        </span>
+        <span class="kpi-sub" *ngIf="lineupStatusBreakdown.length === 0">Prospects still being followed up</span>
+      </div>
+
+      <div class="kpi-card accent-amber">
+        <span class="kpi-icon">💰</span>
+        <span class="kpi-label">Total Cost Involved</span>
+        <ng-container *ngIf="liveCostField; else noCostField">
+          <span class="kpi-value">₹{{ totalCost | number: '1.0-0' }}</span>
+          <span class="kpi-sub">Avg ₹{{ avgCost | number: '1.0-0' }} per active collaborator</span>
+        </ng-container>
+        <ng-template #noCostField>
+          <span class="kpi-value kpi-value-muted">—</span>
+          <span class="kpi-sub hint">Add a Number field named like "Payout" or "Cost" in the Live List to see this</span>
+        </ng-template>
+      </div>
+
+      <div class="kpi-card accent-purple">
+        <span class="kpi-icon">📦</span>
+        <span class="kpi-label">Deliverables Logged</span>
+        <ng-container *ngIf="liveDeliverableField; else noDeliverableField">
+          <span class="kpi-value">{{ deliverableCount }} / {{ activeCount }}</span>
+          <span class="kpi-sub">Active collaborators with a deliverable on file</span>
+        </ng-container>
+        <ng-template #noDeliverableField>
+          <span class="kpi-value kpi-value-muted">—</span>
+          <span class="kpi-sub hint">Add a Text/Long Text field named "Deliverable" in the Live List to see this</span>
+        </ng-template>
+      </div>
+    </div>
+
+    <section class="segment-card" *ngIf="showDeliverablesTable">
+      <h2 class="section-title">Active Collaborators — Cost &amp; Deliverables</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th *ngIf="liveCostField" class="col-num">Cost</th>
+              <th *ngIf="liveDeliverableField">Deliverable</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of deliverableRows">
+              <td>{{ row.name }}</td>
+              <td *ngIf="liveCostField" class="col-num">{{ row.cost !== null ? '₹' + (row.cost | number: '1.0-0') : '—' }}</td>
+              <td *ngIf="liveDeliverableField">{{ row.deliverable || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="no-data" *ngIf="activeCount === 0 && lineupCount === 0">
+      No collaboration records yet — add entries in the Followup or Live list to see them summarized here.
+    </div>
+  </ng-container>
+</div>

@@ -47,4 +47,9 @@ export const PERMISSIONS = {
   webinarAnalysisUpload: 'card:webinar-analysis:upload',
   webinarAnalysisRegistrations: 'card:webinar-analysis:registrations',
   webinarAnalysisAnalytics: 'card:webinar-analysis:analytics',
+
+  collaboration: 'tab:collaboration',
+  collaborationFollowup: 'card:collaboration:followup',
+  collaborationLive: 'card:collaboration:live',
+  collaborationSummary: 'card:collaboration:summary',
 } as const;

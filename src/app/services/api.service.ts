@@ -652,4 +652,56 @@ export class ApiService {
   getLoginHistory(): Observable<APIResponse<any[]>> {
     return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/admin/login-history`);
   }
+
+  // Collaboration (influencer/affiliate CRM)
+  getCollaborationFields(listType: 'followup' | 'live'): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/collaboration/fields/${listType}`);
+  }
+
+  createCollaborationField(
+    listType: 'followup' | 'live',
+    field: { label: string; type: string; options?: string[]; required?: boolean }
+  ): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/collaboration/fields/${listType}`, field);
+  }
+
+  updateCollaborationField(
+    listType: 'followup' | 'live',
+    fieldId: string,
+    update: { label?: string; options?: string[]; required?: boolean }
+  ): Observable<APIResponse<any>> {
+    return this.http.put<APIResponse<any>>(`${this.baseUrl}/collaboration/fields/${listType}/${fieldId}`, update);
+  }
+
+  reorderCollaborationFields(listType: 'followup' | 'live', orderedIds: string[]): Observable<APIResponse<any>> {
+    return this.http.put<APIResponse<any>>(`${this.baseUrl}/collaboration/fields/${listType}/reorder`, { orderedIds });
+  }
+
+  deleteCollaborationField(listType: 'followup' | 'live', fieldId: string): Observable<APIResponse<any>> {
+    return this.http.delete<APIResponse<any>>(`${this.baseUrl}/collaboration/fields/${listType}/${fieldId}`);
+  }
+
+  getCollaborationRecords(stage: 'followup' | 'live'): Observable<APIResponse<any[]>> {
+    return this.http.get<APIResponse<any[]>>(`${this.baseUrl}/collaboration/records/${stage}`);
+  }
+
+  createCollaborationRecord(stage: 'followup' | 'live', values: Record<string, any> = {}): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/collaboration/records/${stage}`, { values });
+  }
+
+  updateCollaborationRecord(recordId: string, values: Record<string, any>): Observable<APIResponse<any>> {
+    return this.http.put<APIResponse<any>>(`${this.baseUrl}/collaboration/records/${recordId}`, { values });
+  }
+
+  deleteCollaborationRecord(recordId: string): Observable<APIResponse<any>> {
+    return this.http.delete<APIResponse<any>>(`${this.baseUrl}/collaboration/records/${recordId}`);
+  }
+
+  promoteCollaborationRecord(recordId: string): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/collaboration/records/${recordId}/promote`, {});
+  }
+
+  demoteCollaborationRecord(recordId: string): Observable<APIResponse<any>> {
+    return this.http.post<APIResponse<any>>(`${this.baseUrl}/collaboration/records/${recordId}/demote`, {});
+  }
 }

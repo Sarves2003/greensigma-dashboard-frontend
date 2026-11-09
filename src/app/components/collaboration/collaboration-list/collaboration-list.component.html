@@ -1,0 +1,237 @@
+<div class="collab-list">
+  <div *ngIf="loading" class="loading-inline">Loading {{ listTypeLabel }} list...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error">
+    <div class="collab-toolbar">
+      <button type="button" class="btn-export" (click)="addRow()">+ Add Row</button>
+      <button type="button" class="btn-toggle-contacts" (click)="openManageFields()">⚙ Manage Fields</button>
+      <span class="collab-count">{{ records.length }} {{ records.length === 1 ? 'entry' : 'entries' }}</span>
+    </div>
+
+    <div class="table-scroll" *ngIf="records.length > 0; else emptyState">
+      <table class="data-table collab-table">
+        <thead>
+          <tr>
+            <th class="col-expand"></th>
+            <th *ngFor="let field of fields">{{ field.label }}</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let record of records">
+            <td class="col-expand">
+              <button type="button" class="btn-expand" (click)="toggleExpand(record)" title="View full details">⤢</button>
+            </td>
+            <td *ngFor="let field of fields" class="cell">
+              <ng-container [ngSwitch]="field.type">
+                <input
+                  *ngSwitchCase="'text'"
+                  type="text"
+                  [(ngModel)]="record.values[field.key]"
+                  (blur)="saveCell(record, field, record.values[field.key])"
+                />
+                <input
+                  *ngSwitchCase="'phone'"
+                  type="tel"
+                  [(ngModel)]="record.values[field.key]"
+                  (blur)="saveCell(record, field, record.values[field.key])"
+                />
+                <input
+                  *ngSwitchCase="'textarea'"
+                  type="text"
+                  [(ngModel)]="record.values[field.key]"
+                  (blur)="saveCell(record, field, record.values[field.key])"
+                  placeholder="⤢ for full text"
+                />
+                <input
+                  *ngSwitchCase="'number'"
+                  type="number"
+                  [(ngModel)]="record.values[field.key]"
+                  (blur)="saveCell(record, field, record.values[field.key])"
+                />
+                <input
+                  *ngSwitchCase="'date'"
+                  type="date"
+                  [(ngModel)]="record.values[field.key]"
+                  (change)="saveCell(record, field, record.values[field.key])"
+                />
+                <select
+                  *ngSwitchCase="'dropdown'"
+                  [(ngModel)]="record.values[field.key]"
+                  (change)="saveCell(record, field, record.values[field.key])"
+                >
+                  <option value="">—</option>
+                  <option *ngFor="let o of field.options" [value]="o">{{ o }}</option>
+                </select>
+                <input
+                  *ngSwitchCase="'checkbox'"
+                  type="checkbox"
+                  [(ngModel)]="record.values[field.key]"
+                  (change)="saveCell(record, field, record.values[field.key])"
+                />
+              </ng-container>
+            </td>
+            <td class="col-actions">
+              <button type="button" class="btn-link" *ngIf="stage === 'followup'" (click)="promote(record)" title="Promote to Live">
+                🟢 Promote
+              </button>
+              <button type="button" class="btn-link" *ngIf="stage === 'live'" (click)="demote(record)" title="Move back to Followup">
+                ↩ Followup
+              </button>
+              <button type="button" class="btn-link danger" (click)="deleteRow(record)" title="Delete">🗑️</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #emptyState>
+      <div class="no-data">
+        No entries yet. Click "+ Add Row" to add your first {{ stage === 'followup' ? 'prospect' : 'collaborator' }}.
+      </div>
+    </ng-template>
+  </ng-container>
+
+  <!-- Detail drawer -->
+  <ng-container *ngIf="expandedRecord as rec">
+    <div class="drawer-backdrop" (click)="closeDrawer()"></div>
+    <div class="detail-drawer">
+      <div class="drawer-header">
+        <h3>Record Details</h3>
+        <button type="button" class="btn-close" (click)="closeDrawer()">✕</button>
+      </div>
+      <div class="drawer-body">
+        <div class="drawer-field" *ngFor="let field of fields">
+          <label>{{ field.label }}</label>
+          <ng-container [ngSwitch]="field.type">
+            <input
+              *ngSwitchCase="'text'"
+              type="text"
+              [(ngModel)]="rec.values[field.key]"
+              (blur)="saveCell(rec, field, rec.values[field.key])"
+            />
+            <input
+              *ngSwitchCase="'phone'"
+              type="tel"
+              [(ngModel)]="rec.values[field.key]"
+              (blur)="saveCell(rec, field, rec.values[field.key])"
+            />
+            <textarea
+              *ngSwitchCase="'textarea'"
+              rows="3"
+              [(ngModel)]="rec.values[field.key]"
+              (blur)="saveCell(rec, field, rec.values[field.key])"
+            ></textarea>
+            <input
+              *ngSwitchCase="'number'"
+              type="number"
+              [(ngModel)]="rec.values[field.key]"
+              (blur)="saveCell(rec, field, rec.values[field.key])"
+            />
+            <input
+              *ngSwitchCase="'date'"
+              type="date"
+              [(ngModel)]="rec.values[field.key]"
+              (change)="saveCell(rec, field, rec.values[field.key])"
+            />
+            <select
+              *ngSwitchCase="'dropdown'"
+              [(ngModel)]="rec.values[field.key]"
+              (change)="saveCell(rec, field, rec.values[field.key])"
+            >
+              <option value="">—</option>
+              <option *ngFor="let o of field.options" [value]="o">{{ o }}</option>
+            </select>
+            <input
+              *ngSwitchCase="'checkbox'"
+              type="checkbox"
+              [(ngModel)]="rec.values[field.key]"
+              (change)="saveCell(rec, field, rec.values[field.key])"
+            />
+          </ng-container>
+        </div>
+      </div>
+      <div class="drawer-footer">
+        <button type="button" class="btn-export" *ngIf="rec.stage === 'followup'" (click)="promote(rec)">🟢 Promote to Live</button>
+        <button type="button" class="btn-toggle-contacts" *ngIf="rec.stage === 'live'" (click)="demote(rec)">↩ Move back to Followup</button>
+        <button type="button" class="btn-link danger" (click)="deleteRow(rec)">🗑️ Delete Record</button>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Manage Fields modal -->
+  <div class="modal-overlay" *ngIf="showManageFields" (click)="closeManageFields()">
+    <div class="modal-content manage-fields-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Manage Fields — {{ listTypeLabel }} List</h2>
+        <button type="button" class="btn-close" (click)="closeManageFields()">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="data-table fields-table" *ngIf="fields.length > 0">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Label</th>
+              <th>Type</th>
+              <th>Options</th>
+              <th>Required</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let field of fields; let i = index">
+              <td class="col-order">
+                <button type="button" class="btn-order" (click)="moveFieldUp(field)" [disabled]="i === 0">↑</button>
+                <button type="button" class="btn-order" (click)="moveFieldDown(field)" [disabled]="i === fields.length - 1">↓</button>
+              </td>
+              <ng-container *ngIf="editingFieldId !== field._id; else editRow">
+                <td>{{ field.label }}</td>
+                <td>{{ fieldTypeLabels[field.type] }}</td>
+                <td>{{ (field.options || []).join(', ') || '—' }}</td>
+                <td>{{ field.required ? 'Yes' : 'No' }}</td>
+                <td class="col-field-actions">
+                  <button type="button" class="btn-link" (click)="startEditField(field)">Edit</button>
+                  <button type="button" class="btn-link danger" (click)="deleteField(field)">Delete</button>
+                </td>
+              </ng-container>
+              <ng-template #editRow>
+                <td><input type="text" [(ngModel)]="editFieldLabel" /></td>
+                <td>{{ fieldTypeLabels[field.type] }}</td>
+                <td>
+                  <input type="text" *ngIf="field.type === 'dropdown'" [(ngModel)]="editFieldOptionsText" placeholder="comma, separated, options" />
+                  <span *ngIf="field.type !== 'dropdown'">—</span>
+                </td>
+                <td><input type="checkbox" [(ngModel)]="editFieldRequired" /></td>
+                <td class="col-field-actions">
+                  <button type="button" class="btn-link" (click)="saveEditField(field)">Save</button>
+                  <button type="button" class="btn-link" (click)="cancelEditField()">Cancel</button>
+                </td>
+              </ng-template>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="add-field-form">
+          <h4>Add a new field</h4>
+          <div class="add-field-row">
+            <input type="text" placeholder="Field name" [(ngModel)]="newFieldLabel" />
+            <select [(ngModel)]="newFieldType">
+              <option *ngFor="let t of fieldTypes" [value]="t">{{ fieldTypeLabels[t] }}</option>
+            </select>
+            <input
+              type="text"
+              *ngIf="newFieldNeedsOptions"
+              placeholder="comma, separated, options"
+              [(ngModel)]="newFieldOptionsText"
+            />
+            <label class="checkbox-label"><input type="checkbox" [(ngModel)]="newFieldRequired" /> Required</label>
+            <button type="button" class="btn-export" (click)="addField()" [disabled]="savingField">
+              {{ savingField ? 'Adding...' : '+ Add Field' }}
+            </button>
+          </div>
+          <div class="error" *ngIf="fieldError">{{ fieldError }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
