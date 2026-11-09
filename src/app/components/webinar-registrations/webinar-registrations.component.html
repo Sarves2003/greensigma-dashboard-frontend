@@ -81,6 +81,44 @@
             <span class="kpi-sub">{{ welcomeMessagePct }}% of {{ summary.totalRegistered }} registered</span>
             <span class="kpi-label">Welcome Message Sent</span>
           </div>
+          <div class="kpi-card accent-teal" *ngIf="summary.avgRegistrationsPerDay != null" title="Total Registered ÷ days since the first checkout attempt for this webinar, through today">
+            <span class="kpi-value">{{ summary.avgRegistrationsPerDay }}</span>
+            <span class="kpi-label">Avg Registrations / Day</span>
+          </div>
+        </div>
+
+        <!-- ============ Ads Spent + CPL ============ -->
+        <div class="ad-spend-row" *ngIf="!summaryLoading && !summaryError && summary">
+          <div class="ad-spend-input-group">
+            <span class="filter-label">Ads Spent (without GST)</span>
+            <div class="ad-spend-input-wrap">
+              <span class="ad-spend-prefix">₹</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                class="ad-spend-input"
+                placeholder="e.g. 15000"
+                [(ngModel)]="adSpendInput"
+                (keyup.enter)="saveAdSpend()"
+              >
+              <button type="button" class="ad-spend-save-btn" (click)="saveAdSpend()" [disabled]="adSpendSaving || adSpendInput == null || adSpendInput < 0">
+                {{ adSpendSaving ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+            <span class="error ad-spend-error" *ngIf="adSpendSaveError">{{ adSpendSaveError }}</span>
+          </div>
+
+          <div class="kpi-grid cpl-grid" *ngIf="summary.adSpend != null">
+            <div class="kpi-card accent-blue" title="Ads Spent (without GST) ÷ Total Registered">
+              <span class="kpi-value">{{ formatINRDecimal(summary.cplWithoutGst!) }}</span>
+              <span class="kpi-label">CPL (without GST)</span>
+            </div>
+            <div class="kpi-card accent-purple" title="(Ads Spent × 1.18) ÷ Total Registered">
+              <span class="kpi-value">{{ formatINRDecimal(summary.cplWithGst!) }}</span>
+              <span class="kpi-label">CPL (with GST 18%)</span>
+            </div>
+          </div>
         </div>
       </section>
 

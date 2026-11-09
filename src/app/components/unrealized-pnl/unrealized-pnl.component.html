@@ -123,42 +123,87 @@
          in the selected window. This is the other half: true SIP added per calendar month from
          every portfolio, regardless of when it was created. The old portfolio-creation-scoped SIP
          Investment figure (with its per-client detail modal) now lives below the table, since it's
-         a narrower, secondary number next to the true monthly total above. -->
+         a narrower, secondary number next to the true monthly total above. Collapsed by default —
+         can run to dozens of rows for an old book. -->
     <div class="segment-card monthly-sip-card" *ngIf="monthlySipBreakdown.length > 0">
-      <h3>Monthly SIP Added</h3>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th class="col-num">SIP Count</th>
-            <th class="col-num">SIP Amount (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let row of monthlySipBreakdown">
-            <td>{{ row.monthLabel }}</td>
-            <td class="col-num">{{ row.count }}</td>
-            <td class="col-num">₹{{ row.amount | number: '1.0-0' }}</td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr class="sip-scoped-row clickable-row" (click)="openSipModal()" title="Click for per-client detail">
-            <td>Of which, from portfolios created in this window</td>
-            <td class="col-num">{{ totals.sipCountInPeriod }}</td>
-            <td class="col-num">₹{{ totals.sipInPeriod | number: '1.0-0' }}</td>
-          </tr>
-        </tfoot>
-      </table>
+      <h3 class="collapsible-header" (click)="toggleMonthlySipTable()">
+        <span class="collapse-arrow" [class.expanded]="monthlySipExpanded">▶</span>
+        Monthly SIP Added
+        <span class="section-note">{{ totalMonthlySipCount }} SIP event{{ totalMonthlySipCount === 1 ? '' : 's' }} · ₹{{ totalMonthlySipAmount | number: '1.0-0' }} total{{ monthlySipExpanded ? '' : ' — click to expand' }}</span>
+      </h3>
+      <div class="table-scroll-limited" *ngIf="monthlySipExpanded">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th class="col-num">SIP Count</th>
+              <th class="col-num">SIP Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of monthlySipBreakdown">
+              <td>{{ row.monthLabel }}</td>
+              <td class="col-num">{{ row.count }}</td>
+              <td class="col-num">₹{{ row.amount | number: '1.0-0' }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="sip-scoped-row clickable-row" (click)="openSipModal()" title="Click for per-client detail">
+              <td>Of which, from portfolios created in this window</td>
+              <td class="col-num">{{ totals.sipCountInPeriod }}</td>
+              <td class="col-num">₹{{ totals.sipInPeriod | number: '1.0-0' }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
 
-    <!-- Summary Row 2: performance -->
+    <!-- Summary Row 2: book snapshot -->
     <div class="metrics-grid hero-grid">
       <div class="summary-card hero-card">
         <span class="summary-icon">💰</span>
-        <span class="summary-label">Total Invested</span>
+        <span class="summary-label">Total Invested (In Use)</span>
         <span class="summary-value">₹{{ totals.invested | number: '1.0-0' }}</span>
         <span class="summary-sub">Actually deployed into stocks</span>
       </div>
+      <div class="summary-card hero-card">
+        <span class="summary-icon">📁</span>
+        <span class="summary-label">Total Number of Portfolios</span>
+        <span class="summary-value">{{ filteredPortfolios.length }}</span>
+        <span class="summary-sub">{{ totalPortfoliosUserCount }} unique user{{ totalPortfoliosUserCount === 1 ? '' : 's' }} — for the selected period</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-icon">🔁</span>
+        <span class="summary-label">Active Portfolio Managers</span>
+        <span class="summary-value">{{ activePortfolioPct }}% <span class="summary-fraction">({{ activePortfolioCount }} / {{ filteredPortfolios.length }})</span></span>
+        <span class="summary-sub">Rebalanced at least once, ever — ignores date filters</span>
+      </div>
+    </div>
+
+    <!-- Summary Row 3: activity in the selected period -->
+    <div class="metrics-grid hero-grid">
+      <div class="summary-card hero-card">
+        <span class="summary-icon">🆕</span>
+        <span class="summary-label">First-Time Portfolios</span>
+        <span class="summary-value">{{ firstPortfolioCount }}</span>
+        <span class="summary-sub">{{ firstPortfolioUserCount }} unique user{{ firstPortfolioUserCount === 1 ? '' : 's' }} — client has no other live portfolio</span>
+      </div>
+      <div class="summary-card hero-card">
+        <span class="summary-icon">♻️</span>
+        <span class="summary-label">Total Rebalances Done</span>
+        <span class="summary-value">{{ rebalancesInPeriod }}</span>
+        <span class="summary-sub">In the selected period</span>
+      </div>
+      <div class="summary-card hero-card">
+        <span class="summary-icon">➕</span>
+        <span class="summary-label">People Added SIP</span>
+        <span class="summary-value">{{ peopleAddedSipCount }}</span>
+        <span class="summary-sub">Unique clients, in the selected period</span>
+      </div>
+    </div>
+
+    <!-- Summary Row 4: performance -->
+    <div class="metrics-grid hero-grid">
       <div class="summary-card hero-card">
         <span class="summary-icon">📈</span>
         <span class="summary-label">Total Current Value</span>
@@ -171,7 +216,7 @@
       </div>
     </div>
 
-    <!-- Summary Row 2: portfolio-level standouts -->
+    <!-- Summary Row 5: portfolio-level standouts -->
     <div class="metrics-grid stats-grid">
       <div class="summary-card split-card">
         <span class="summary-icon">🥊</span>
@@ -194,23 +239,61 @@
         <span class="summary-value">{{ loser ? (loser.pnlPercent | number: '1.2-2') + '%' : '-' }}</span>
         <span class="summary-sub" *ngIf="loser">{{ loser.portfolioName }} · {{ loser.userId }}</span>
       </div>
-      <div class="summary-card">
-        <span class="summary-icon">🔁</span>
-        <span class="summary-label">Active Portfolio Managers</span>
-        <span class="summary-value">{{ activePortfolioPct }}% <span class="summary-fraction">({{ activePortfolioCount }} / {{ filteredPortfolios.length }})</span></span>
-        <span class="summary-sub">Rebalanced at least once, ever — ignores date filters</span>
-      </div>
     </div>
 
-    <!-- ROI% Distribution -->
-    <section class="segment-card chart-container">
-      <h3>ROI% Distribution ({{ filteredPortfolios.length }} portfolios)</h3>
-      <app-chart [data]="histogramData" [type]="'bar'" [title]="'Portfolio Count'"></app-chart>
+    <!-- Broker-wise breakdown -->
+    <section class="segment-card broker-summary-section">
+      <h3>Broker-wise Breakdown <span class="broker-hint" *ngIf="!selectedBroker">(click a broker to filter the table below)</span></h3>
+      <div class="metrics-grid broker-grid">
+        <div
+          class="summary-card broker-card"
+          *ngFor="let row of brokerSummary"
+          [class.active]="row.broker === selectedBroker"
+          (click)="onBrokerCardClick(row.broker)"
+        >
+          <img class="broker-logo" [src]="row.logo" [alt]="row.label">
+          <span class="summary-label">{{ row.label }}</span>
+          <span class="summary-value">{{ row.portfolioCount }}</span>
+          <span class="summary-sub">{{ row.userCount }} unique user{{ row.userCount === 1 ? '' : 's' }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Regime defense: when the strategy's regime filter turns to SELL, portfolios either
+         liquidate fully to cash, fully to GOLDBEES, or sell roughly half into GOLDBEES. -->
+    <section class="segment-card regime-summary-section">
+      <h3>Regime Defense <span class="section-note">Where defensive portfolios currently sit</span></h3>
+      <div class="metrics-grid regime-grid">
+        <div class="summary-card regime-card accent-cash">
+          <span class="summary-icon">🪙</span>
+          <span class="summary-label">AUM Parked in Uncorrelated Asset</span>
+          <span class="summary-value">₹{{ uncorrelatedAssetValue | number: '1.0-0' }}</span>
+          <span class="summary-sub">GOLDBEES / LIQUIDBEES / SILVERBEES, at current value</span>
+        </div>
+        <div class="summary-card regime-card accent-half-gold">
+          <span class="summary-icon">🟡</span>
+          <span class="summary-label">Half Portfolio → Gold</span>
+          <span class="summary-value">{{ halfGoldCount }}</span>
+          <span class="summary-sub">{{ halfGoldUserCount }} unique user{{ halfGoldUserCount === 1 ? '' : 's' }} — GOLDBEES + other stocks held</span>
+        </div>
+        <div class="summary-card regime-card accent-full-gold">
+          <span class="summary-icon">🥇</span>
+          <span class="summary-label">Fully Moved to Gold</span>
+          <span class="summary-value">{{ fullGoldCount }}</span>
+          <span class="summary-sub">{{ fullGoldUserCount }} unique user{{ fullGoldUserCount === 1 ? '' : 's' }} — 100% GOLDBEES</span>
+        </div>
+      </div>
     </section>
 
     <section class="segment-card table-section">
       <div class="table-header">
-        <h2>Live Real Portfolios ({{ filteredPortfolios.length }})</h2>
+        <h2>
+          Live Real Portfolios ({{ filteredPortfolios.length }})
+          <span class="broker-filter-chip" *ngIf="selectedBroker">
+            {{ selectedBrokerLabel }}
+            <button type="button" class="clear-broker-filter" (click)="onBrokerCardClick(selectedBroker)">&times;</button>
+          </span>
+        </h2>
         <div class="table-header-controls">
           <label class="page-size-label">
             Rows:
@@ -224,6 +307,9 @@
             class="search-box"
             placeholder="Search by userId or portfolio name..."
             (input)="onSearch(searchInput.value)">
+          <button type="button" class="btn-toggle-contacts" (click)="toggleContactColumns()">
+            {{ showContactColumns ? '🙈 Hide' : '👁 Show' }} Name/Phone
+          </button>
           <button
             type="button"
             class="btn-export"
@@ -236,6 +322,8 @@
         <table class="data-table sortable">
           <thead>
             <tr>
+              <th *ngIf="showContactColumns">Name</th>
+              <th *ngIf="showContactColumns">Phone Number</th>
               <th (click)="onSort('userId')" [class.active]="sortBy === 'userId'">
                 User ID
                 <span *ngIf="sortBy === 'userId'" class="sort-icon">{{ sortOrder === 'asc' ? '▲' : '▼' }}</span>
@@ -293,6 +381,8 @@
           </thead>
           <tbody>
             <tr *ngFor="let portfolio of pagedPortfolios" class="clickable-row" (click)="openDetail(portfolio)">
+              <td *ngIf="showContactColumns" (click)="$event.stopPropagation()">{{ contactName(portfolio.userId) }}</td>
+              <td *ngIf="showContactColumns" (click)="$event.stopPropagation()">{{ contactPhone(portfolio.userId) }}</td>
               <td>{{ portfolio.userId }}</td>
               <td>{{ portfolio.portfolioName }}</td>
               <td class="col-center">

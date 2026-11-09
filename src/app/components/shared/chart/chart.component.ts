@@ -137,14 +137,24 @@ export class ChartComponent implements OnInit, OnChanges {
     const colorMap: any = {
       kite: { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.3)' },
       zebu: { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.3)' },
+      aliceblue: { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.3)' },
+      dhan: { border: '#06b6d4', bg: 'rgba(6, 182, 212, 0.3)' },
+      enrich: { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.3)' },
       paper_trade: { border: '#10b981', bg: 'rgba(16, 185, 129, 0.3)' },
+    };
+
+    // Matches PortfolioAnalyticsService's REAL_BROKER_FIELDS on the backend — every broker type that
+    // isn't explicitly here used to silently fall back to 'paperTradeAUM' (the ternary's default
+    // case), which plotted real brokers' AUM mixed into the paper-trade line instead of dropping it.
+    const fieldNameMap: Record<string, string> = {
+      kite: 'kiteAUM', zebu: 'zebuAUM', aliceblue: 'aliceblueAUM', dhan: 'dhanAUM', enrich: 'enrichAUM', paper_trade: 'paperTradeAUM',
     };
 
     // Build datasets for each broker type
     const datasets: any[] = [];
     brokerTypes.forEach((brokerType: string) => {
-      const fieldName = brokerType === 'kite' ? 'kiteAUM' :
-                       brokerType === 'zebu' ? 'zebuAUM' : 'paperTradeAUM';
+      const fieldName = fieldNameMap[brokerType];
+      if (!fieldName) return;
 
       const values = rawData.map((item: any) => item[fieldName] || 0);
       const colors = colorMap[brokerType] || { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.3)' };

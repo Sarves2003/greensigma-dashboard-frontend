@@ -44,6 +44,10 @@ interface WebinarRegSummary {
   welcomeMessageSent: number;
   totalAttempts: number;
   totalDistinctPeople: number;
+  adSpend: number | null;
+  cplWithoutGst: number | null;
+  cplWithGst: number | null;
+  avgRegistrationsPerDay: number | null;
 }
 
 interface PagedResult<T> {
@@ -76,6 +80,12 @@ export class WebinarRegistrationsComponent implements OnInit, OnDestroy {
   summary: WebinarRegSummary | null = null;
   summaryLoading = false;
   summaryError: string | null = null;
+
+  // Ads Spent — manually entered per webinar, GST-exclusive. Kept as a separate editable field
+  // (not just read off `summary.adSpend`) so typing doesn't get clobbered by an in-flight refresh.
+  adSpendInput: number | null = null;
+  adSpendSaving = false;
+  adSpendSaveError: string | null = null;
 
   activeCategory: RegCategory = 'success';
   table: PagedResult<RegistrationPersonRow> | null = null;
@@ -143,6 +153,8 @@ export class WebinarRegistrationsComponent implements OnInit, OnDestroy {
     this.sortBy = null;
     this.sortDir = 'desc';
     this.searchInput = '';
+    this.adSpendInput = null;
+    this.adSpendSaveError = null;
     this.loadSummary();
     this.loadTable();
   }
@@ -165,13 +177,37 @@ export class WebinarRegistrationsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
-          if (res.success && res.data) this.summary = res.data;
-          else this.summaryError = res.error || 'Failed to load summary';
+          if (res.success && res.data) {
+            this.summary = res.data;
+            this.adSpendInput = res.data.adSpend;
+          } else {
+            this.summaryError = res.error || 'Failed to load summary';
+          }
           this.summaryLoading = false;
         },
         error: (err) => {
           this.summaryError = err?.error?.error || 'Failed to load summary';
           this.summaryLoading = false;
+        },
+      });
+  }
+
+  saveAdSpend() {
+    if (!this.selectedWebinarId || this.adSpendInput == null || this.adSpendInput < 0) return;
+    this.adSpendSaving = true;
+    this.adSpendSaveError = null;
+    this.apiService
+      .setWebinarAdSpend(this.selectedWebinarId, this.adSpendInput)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          if (res.success) this.loadSummary();
+          else this.adSpendSaveError = res.error || 'Failed to save';
+          this.adSpendSaving = false;
+        },
+        error: (err) => {
+          this.adSpendSaveError = err?.error?.error || 'Failed to save';
+          this.adSpendSaving = false;
         },
       });
   }
@@ -272,6 +308,10 @@ export class WebinarRegistrationsComponent implements OnInit, OnDestroy {
 
   formatINR(n: number): string {
     return '₹' + Math.round(n).toLocaleString('en-IN');
+  }
+
+  formatINRDecimal(n: number): string {
+    return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   get welcomeMessagePct(): number {

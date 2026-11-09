@@ -43,9 +43,12 @@ export class PortfolioComponent implements OnInit, OnDestroy {
   brokerTypes = [
     { label: 'kite', value: 'kite' },
     { label: 'zebu', value: 'zebu' },
+    { label: 'aliceblue', value: 'aliceblue' },
+    { label: 'dhan', value: 'dhan' },
+    { label: 'enrich', value: 'enrich' },
     { label: 'paper_trade', value: 'paper_trade' },
   ];
-  selectedBrokerTypes: string[] = ['kite', 'zebu'];
+  selectedBrokerTypes: string[] = ['kite', 'zebu', 'aliceblue', 'dhan', 'enrich'];
 
   // Pagination
   currentPage = 1;

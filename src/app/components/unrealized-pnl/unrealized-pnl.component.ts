@@ -6,7 +6,6 @@ import { takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { PERMISSIONS } from '../../config/permissions';
-import { ChartComponent } from '../shared/chart/chart.component';
 
 interface HoldingPnl {
   tradingsymbol: string;
@@ -29,6 +28,7 @@ interface PortfolioPnl {
   portfolioId: string;
   userId: string;
   portfolioName: string;
+  borkrageType: string;
   createdAt?: string;
   updatedAt?: string;
   fromBacktest: boolean;
@@ -38,6 +38,8 @@ interface PortfolioPnl {
   pnlPercent: number;
   rebalanceCount: number;
   stocksTraded: number;
+  rebalanceDates: string[];
+  regimeStatus: 'full_gold' | 'half_gold' | null;
   holdings: HoldingPnl[];
   investmentCapital: number | null;
   freeCash: number;
@@ -72,26 +74,29 @@ interface SipRow {
   sipCountInPeriod: number;
 }
 
-interface HistogramBin {
+interface BrokerSummaryRow {
+  broker: string;
   label: string;
-  min: number;
-  max: number;
+  logo: string;
+  portfolioCount: number;
+  userCount: number;
 }
 
-const HISTOGRAM_BINS: HistogramBin[] = [
-  { label: '< -50%', min: -Infinity, max: -50 },
-  { label: '-50% to -25%', min: -50, max: -25 },
-  { label: '-25% to 0%', min: -25, max: 0 },
-  { label: '0% to 25%', min: 0, max: 25 },
-  { label: '25% to 50%', min: 25, max: 50 },
-  { label: '50% to 100%', min: 50, max: 100 },
-  { label: '> 100%', min: 100, max: Infinity },
-];
+// Fixed display order (the order these brokers were connected on the platform), not alphabetical or
+// count-sorted — keeps the card row from reshuffling position as filters change the counts.
+const BROKER_ORDER = ['kite', 'zebu', 'aliceblue', 'dhan', 'enrich'];
+const BROKER_META: Record<string, { label: string; logo: string }> = {
+  kite: { label: 'Kite (Zerodha)', logo: 'assets/broker-kite.png' },
+  zebu: { label: 'Zebu', logo: 'assets/broker-zebu.png' },
+  aliceblue: { label: 'AliceBlue', logo: 'assets/broker-aliceblue.png' },
+  dhan: { label: 'Dhan', logo: 'assets/broker-dhan.png' },
+  enrich: { label: 'Enrich', logo: 'assets/broker-enrich.png' },
+};
 
 @Component({
   selector: 'app-unrealized-pnl',
   standalone: true,
-  imports: [CommonModule, FormsModule, ChartComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './unrealized-pnl.component.html',
   styleUrls: ['./unrealized-pnl.component.scss'],
 })
@@ -164,13 +169,24 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
   negativeCount = 0;
   winner: PortfolioPnl | null = null;
   loser: PortfolioPnl | null = null;
-  histogramData: { bin: string; count: number }[] = [];
   activePortfolioCount = 0;
   activePortfolioPct = 0;
+  brokerSummary: BrokerSummaryRow[] = [];
+  // Clicking a broker card filters the table below to just that broker, client-side — re-clicking
+  // the same card clears it. Kept separate from the other filters so the card row itself always
+  // keeps showing every broker's own count (computed from the pre-broker-click list), letting the
+  // user click a different broker without the row collapsing to a single card first.
+  selectedBroker: string | null = null;
+
+  get selectedBrokerLabel(): string {
+    return this.selectedBroker ? BROKER_META[this.selectedBroker]?.label || this.selectedBroker : '';
+  }
 
   // True monthly SIP inflow, irrespective of which portfolio it came from or when that portfolio
   // was created — see computeMonthlySipBreakdown() for why this needs its own, unfiltered pass.
   monthlySipBreakdown: { monthLabel: string; amount: number; count: number }[] = [];
+  // Collapsed by default — this table can run to dozens of rows for a book this old.
+  monthlySipExpanded = false;
 
   get totalMonthlySipAmount(): number {
     return this.monthlySipBreakdown.reduce((sum, r) => sum + r.amount, 0);
@@ -180,12 +196,112 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     return this.monthlySipBreakdown.reduce((sum, r) => sum + r.count, 0);
   }
 
+  // ============ First-Time Portfolios (client's ONLY live portfolio, not just "created recently") ============
+  // A portfolio counts here only if its client has exactly ONE live real portfolio total — checked
+  // against the full unfiltered list (this.portfolios), not the filtered one, so narrowing the page's
+  // filters can never make a client with several portfolios look like a first-timer just because the
+  // rest got filtered out. The active filters still decide WHICH of these first-timers are counted
+  // (e.g. filtering to Automated only counts first-timers whose one portfolio is itself Automated).
+  firstPortfolioCount = 0;
+  firstPortfolioUserCount = 0;
+
+  // ============ Rebalances Done (period-scoped) ============
+  // Sum of each filtered portfolio's rebalanceDates that fall inside the SAME Created At / Updated
+  // At window as everything else on this page — mirrors how SIP events are period-scoped.
+  rebalancesInPeriod = 0;
+
+  // ============ People Added SIP (period-scoped, unique clients) ============
+  peopleAddedSipCount = 0;
+
+  // ============ Regime defense: AUM parked in uncorrelated assets ============
+  // The strategy's uncorrelated/defensive universe — not gold alone, since the same mechanism can
+  // route into a liquid or silver ETF too. Summed at CURRENT value (mark-to-market), from whatever
+  // is actually held right now, same convention as Total Current Value elsewhere on this page.
+  private readonly UNCORRELATED_ASSET_SYMBOLS = new Set(['GOLDBEES', 'LIQUIDBEES', 'SILVERBEES']);
+
+  get uncorrelatedAssetValue(): number {
+    return this.filteredPortfolios.reduce((sum, p) => {
+      const portfolioUncorrelated = p.holdings
+        .filter((h) => this.UNCORRELATED_ASSET_SYMBOLS.has(h.tradingsymbol))
+        .reduce((s, h) => s + h.currentValue, 0);
+      return sum + portfolioUncorrelated;
+    }, 0);
+  }
+
+  // ============ Regime defense: Gold buckets ============
+  // Unlike Went to Cash, these portfolios DO have non-empty holdings, so they're already present in
+  // filteredPortfolios — derived the same way Broker-wise Breakdown's counts are, respecting every
+  // active page filter.
+  get fullGoldCount(): number {
+    return this.filteredPortfolios.filter((p) => p.regimeStatus === 'full_gold').length;
+  }
+
+  get fullGoldUserCount(): number {
+    return new Set(this.filteredPortfolios.filter((p) => p.regimeStatus === 'full_gold').map((p) => p.userId)).size;
+  }
+
+  get halfGoldCount(): number {
+    return this.filteredPortfolios.filter((p) => p.regimeStatus === 'half_gold').length;
+  }
+
+  get halfGoldUserCount(): number {
+    return new Set(this.filteredPortfolios.filter((p) => p.regimeStatus === 'half_gold').map((p) => p.userId)).size;
+  }
+
+  get totalPortfoliosUserCount(): number {
+    return new Set(this.filteredPortfolios.map((p) => p.userId)).size;
+  }
+
+  // ============ Name/Phone columns in the table — hidden by default, loaded on demand ============
+  showContactColumns = false;
+  contactsLoading = false;
+  private contactsByUserId = new Map<string, ContactInfo>();
+
+  contactName(userId: string): string {
+    return this.contactsByUserId.get(userId)?.name || (this.contactsLoading ? '…' : '-');
+  }
+
+  contactPhone(userId: string): string {
+    return this.contactsByUserId.get(userId)?.whatsappNumber || (this.contactsLoading ? '…' : '-');
+  }
+
   private destroy$ = new Subject<void>();
 
   constructor(private apiService: ApiService, public authService: AuthService) {}
 
   ngOnInit() {
     this.load();
+  }
+
+  toggleMonthlySipTable() {
+    this.monthlySipExpanded = !this.monthlySipExpanded;
+  }
+
+  toggleContactColumns() {
+    this.showContactColumns = !this.showContactColumns;
+    if (this.showContactColumns) this.ensureContactsLoaded();
+  }
+
+  // Fetches only userIds not already cached, so toggling on/off repeatedly or changing filters while
+  // expanded doesn't re-fetch contacts already in hand.
+  private ensureContactsLoaded() {
+    const missing = [...new Set(this.filteredPortfolios.map((p) => p.userId))].filter((id) => !this.contactsByUserId.has(id));
+    if (missing.length === 0) return;
+
+    this.contactsLoading = true;
+    this.apiService
+      .getUserContacts(missing)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          (response.data || []).forEach((c: ContactInfo) => this.contactsByUserId.set(c.userId, c));
+          this.contactsLoading = false;
+        },
+        error: (error) => {
+          console.error(error);
+          this.contactsLoading = false;
+        },
+      });
   }
 
   ngOnDestroy() {
@@ -253,6 +369,11 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     this.applySortAndFilter();
   }
 
+  onBrokerCardClick(broker: string) {
+    this.selectedBroker = this.selectedBroker === broker ? null : broker;
+    this.applySortAndFilter();
+  }
+
   applySortAndFilter() {
     let filtered = [...this.portfolios];
 
@@ -276,6 +397,14 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
 
     if (this.excludeInactive) {
       filtered = filtered.filter((p) => !this.isInactive(p));
+    }
+
+    // Broker summary is computed from the list BEFORE the broker-click filter below, so every
+    // card keeps showing its own real count instead of zeroing out once one broker is selected.
+    this.computeBrokerSummary(filtered);
+
+    if (this.selectedBroker) {
+      filtered = filtered.filter((p) => p.borkrageType === this.selectedBroker);
     }
 
     // Must run before the sort below — sipCountInPeriod/sipAmountInPeriod/aumDeployed are fields
@@ -306,11 +435,14 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     this.computeTotals();
     this.computeCounts();
     this.computeWinnerLoser();
-    this.computeHistogram();
     this.computeActivePortfolios();
     this.computeMonthlySipBreakdown();
+    this.computeFirstPortfolioClients();
+    this.computeRebalancesInPeriod();
+    this.computePeopleAddedSip();
     this.currentPage = 1;
     this.updatePagination();
+    if (this.showContactColumns) this.ensureContactsLoaded();
   }
 
   private updatePagination() {
@@ -470,6 +602,41 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Counts filtered portfolios whose client has exactly one live real portfolio, period — their
+  // very first (and so far only) one. The "exactly one" check runs against the FULL unfiltered
+  // list, not filteredPortfolios, so it stays a true statement about the client regardless of what
+  // the page's own filters happen to be hiding right now.
+  private computeFirstPortfolioClients() {
+    const totalByUser = new Map<string, number>();
+    for (const p of this.portfolios) {
+      totalByUser.set(p.userId, (totalByUser.get(p.userId) || 0) + 1);
+    }
+
+    const firstTimers = this.filteredPortfolios.filter((p) => totalByUser.get(p.userId) === 1);
+    this.firstPortfolioCount = firstTimers.length;
+    this.firstPortfolioUserCount = new Set(firstTimers.map((p) => p.userId)).size;
+  }
+
+  // Sum of each currently-filtered portfolio's rebalanceDates that fall inside the SAME Created At /
+  // Updated At window as everything else on the page — a period-scoped version of the lifetime
+  // "Rebalances" column already shown per-portfolio in the table.
+  private computeRebalancesInPeriod() {
+    this.rebalancesInPeriod = this.filteredPortfolios.reduce((sum, p) => {
+      const inPeriod = p.rebalanceDates.filter((d) => {
+        const time = new Date(d).getTime();
+        return this.isTimeInRange(time, this.createdFrom, this.createdTo) && this.isTimeInRange(time, this.updatedFrom, this.updatedTo);
+      });
+      return sum + inPeriod.length;
+    }, 0);
+  }
+
+  // Unique clients (not portfolios) with at least one SIP event in the selected period — must run
+  // after computeSipAndAum() has refreshed sipCountInPeriod for the current filters.
+  private computePeopleAddedSip() {
+    const users = new Set(this.filteredPortfolios.filter((p) => p.sipCountInPeriod > 0).map((p) => p.userId));
+    this.peopleAddedSipCount = users.size;
+  }
+
   private isTimeInRange(time: number, from: string, to: string): boolean {
     if (!from && !to) return true;
     if (from && time < new Date(from).getTime()) return false;
@@ -501,14 +668,6 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     );
   }
 
-  private computeHistogram() {
-    this.histogramData = HISTOGRAM_BINS.map((bin) => ({
-      bin: bin.label,
-      count: this.filteredPortfolios.filter((p) => p.pnlPercent >= bin.min && p.pnlPercent < bin.max)
-        .length,
-    }));
-  }
-
   // rebalanceCount is a lifetime count (not scoped to the Created At / Updated At filters above)
   // by design — a portfolio created "this month" wouldn't have had time to rebalance within that
   // same narrow window, so "active" always looks at whether it has ever rebalanced at all.
@@ -517,6 +676,33 @@ export class UnrealizedPnlComponent implements OnInit, OnDestroy {
     this.activePortfolioPct = this.filteredPortfolios.length > 0
       ? parseFloat((this.activePortfolioCount / this.filteredPortfolios.length * 100).toFixed(1))
       : 0;
+  }
+
+  // Unique portfolio + client count per broker, scoped to the currently filtered list — same
+  // convention as every other summary card on this page (totals, winner/loser, histogram, etc. all
+  // reflect the active search/type/date filters, not the full unfiltered dataset). `source` is the
+  // list BEFORE the broker-click filter is applied — see applySortAndFilter().
+  private computeBrokerSummary(source: PortfolioPnl[]) {
+    const byBroker = new Map<string, { portfolios: number; users: Set<string> }>();
+    for (const p of source) {
+      if (!p.borkrageType) continue;
+      if (!byBroker.has(p.borkrageType)) byBroker.set(p.borkrageType, { portfolios: 0, users: new Set() });
+      const entry = byBroker.get(p.borkrageType)!;
+      entry.portfolios++;
+      entry.users.add(p.userId);
+    }
+
+    this.brokerSummary = BROKER_ORDER.map((broker) => {
+      const meta = BROKER_META[broker];
+      const entry = byBroker.get(broker);
+      return {
+        broker,
+        label: meta.label,
+        logo: meta.logo,
+        portfolioCount: entry?.portfolios || 0,
+        userCount: entry?.users.size || 0,
+      };
+    });
   }
 
   private filterByDateRange(

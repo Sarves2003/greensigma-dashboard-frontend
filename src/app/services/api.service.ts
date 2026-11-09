@@ -221,6 +221,10 @@ export class ApiService {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/webinar-registrations/summary/${webinarId}`);
   }
 
+  setWebinarAdSpend(webinarId: string, adSpend: number): Observable<APIResponse<null>> {
+    return this.http.put<APIResponse<null>>(`${this.baseUrl}/webinar-registrations/ad-spend/${webinarId}`, { adSpend });
+  }
+
   getWebinarRegistrationsTable(
     webinarId: string,
     category: 'success' | 'failed' | 'notpaid' | 'all',
